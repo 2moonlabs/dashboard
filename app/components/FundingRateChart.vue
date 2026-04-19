@@ -5,6 +5,7 @@ import type { FundingRate } from '~/types'
 
 const props = defineProps<{
   data: FundingRate[]
+  loading?: boolean
 }>()
 
 const cardRef = useTemplateRef<HTMLElement | null>('cardRef')
@@ -12,7 +13,7 @@ const { width } = useElementSize(cardRef)
 
 const points = computed(() =>
   [...props.data]
-    .map(d => ({ time: new Date(d.funding_time), rate: Number(d.funding_rate) }))
+    .map(d => ({ time: new Date(d.funding_time), rate: d.funding_rate }))
     .sort((a, b) => a.time.getTime() - b.time.getTime())
 )
 
@@ -100,6 +101,12 @@ const tooltipTemplate = (d: Point) => `${formatFullDate(d.time)}\n${formatPercen
           <VisTooltip />
         </VisXYContainer>
         <div
+          v-else-if="loading"
+          class="h-96 flex items-center justify-center text-muted"
+        >
+          <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin" />
+        </div>
+        <div
           v-else
           class="h-96 flex items-center justify-center text-muted text-sm"
         >
@@ -109,6 +116,13 @@ const tooltipTemplate = (d: Point) => `${formatFullDate(d.time)}\n${formatPercen
           <div class="h-96" />
         </template>
       </ClientOnly>
+
+      <div
+        v-if="loading && points.length"
+        class="absolute inset-0 flex items-center justify-center bg-default/60 pointer-events-none"
+      >
+        <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin text-muted" />
+      </div>
     </div>
   </UCard>
 </template>

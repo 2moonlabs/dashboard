@@ -37,13 +37,13 @@ const columns: TableColumn<FundingRate>[] = [
   {
     accessorKey: 'funding_interval',
     header: 'Funding Interval',
-    cell: ({ row }) => formatInterval(Number(row.original.funding_interval))
+    cell: ({ row }) => formatInterval(row.original.funding_interval)
   },
   {
     accessorKey: 'funding_rate',
     header: 'Funding Rate',
     cell: ({ row }) => {
-      const v = Number(row.original.funding_rate)
+      const v = row.original.funding_rate
       const className = v < 0 ? 'text-error' : v > 0 ? 'text-success' : 'text-muted'
       return h('span', { class: `${className} tabular-nums` }, formatPercent(v))
     }

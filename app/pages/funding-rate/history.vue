@@ -20,7 +20,7 @@ watch(symbols, (list) => {
 const rangeOptions: { label: string, value: RangePreset }[] = [
   { label: 'Last Week', value: 'week' },
   { label: 'Last Month', value: 'month' },
-  { label: 'All', value: 'all' }
+  { label: 'Last 1000 Rows', value: 'all' }
 ]
 const range = ref<RangePreset>('week')
 
@@ -88,7 +88,7 @@ const fetchError = computed(() => symbolsError.value || historyError.value)
           title="No symbols found"
           description="Symbols RPC returned empty. Check the distinct-symbols function exists for the selected exchange and that authenticated has EXECUTE permission."
         />
-        <FundingRateChart :data="history ?? []" />
+        <FundingRateChart :data="history ?? []" :loading="loading" />
         <FundingRateTable :data="history ?? []" :loading="loading" />
       </div>
     </template>
