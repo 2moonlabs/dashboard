@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import type { RangePreset } from '~/types'
+import { EXCHANGE_OPTIONS, type ExchangeId } from '~/types/exchanges'
 
-const { data: symbols, error: symbolsError } = await useSymbols()
+const selectedExchange = ref<ExchangeId>('coinbase')
+
+const { data: symbols, error: symbolsError } = await useSymbols(selectedExchange)
 
 const selectedSymbol = ref<string | null>(symbols.value?.[0] ?? null)
 watch(symbols, (list) => {
-  if (!selectedSymbol.value && list?.length) {
+  if (!list?.length) {
+    selectedSymbol.value = null
+    return
+  }
+  if (!selectedSymbol.value || !list.includes(selectedSymbol.value)) {
     selectedSymbol.value = list[0]!
   }
 })
@@ -17,7 +24,11 @@ const rangeOptions: { label: string, value: RangePreset }[] = [
 ]
 const range = ref<RangePreset>('week')
 
-const { data: history, status, error: historyError } = useFundingHistory(selectedSymbol, range)
+const { data: history, status, error: historyError } = await useFundingHistory(
+  selectedExchange,
+  selectedSymbol,
+  range
+)
 const loading = computed(() => status.value === 'pending')
 
 const fetchError = computed(() => symbolsError.value || historyError.value)
@@ -34,6 +45,12 @@ const fetchError = computed(() => symbolsError.value || historyError.value)
 
       <UDashboardToolbar>
         <template #left>
+          <USelect
+            v-model="selectedExchange"
+            :items="EXCHANGE_OPTIONS"
+            value-key="value"
+            class="min-w-36"
+          />
           <USelectMenu
             v-model="selectedSymbol"
             :items="symbols ?? []"
@@ -69,7 +86,7 @@ const fetchError = computed(() => symbolsError.value || historyError.value)
           variant="soft"
           icon="i-lucide-info"
           title="No symbols found"
-          description="distinct_coinbase_funding_symbols RPC returned empty. Make sure the function exists and the authenticated role has EXECUTE permission."
+          description="Symbols RPC returned empty. Check the distinct-symbols function exists for the selected exchange and that authenticated has EXECUTE permission."
         />
         <FundingRateChart :data="history ?? []" />
         <FundingRateTable :data="history ?? []" :loading="loading" />

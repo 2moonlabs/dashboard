@@ -1,12 +1,18 @@
 import type { FundingRate, RangePreset } from '~/types'
+import { EXCHANGES, type ExchangeId } from '~/types/exchanges'
 
-export async function useSymbols() {
+export function useSymbols(exchange: Ref<ExchangeId>) {
   const supabase = useSupabaseClient()
-  return useAsyncData('funding-symbols', async () => {
-    const { data, error } = await supabase.rpc('distinct_coinbase_funding_symbols')
-    if (error) throw error
-    return (data ?? []) as string[]
-  })
+  return useAsyncData(
+    'funding-symbols',
+    async () => {
+      const cfg = EXCHANGES[exchange.value].fundingRates
+      const { data, error } = await supabase.rpc(cfg.distinctSymbolsFunction)
+      if (error) throw error
+      return (data ?? []) as string[]
+    },
+    { watch: [exchange] }
+  )
 }
 
 function rangeCutoff(r: RangePreset): string | null {
@@ -16,6 +22,7 @@ function rangeCutoff(r: RangePreset): string | null {
 }
 
 export function useFundingHistory(
+  exchange: Ref<ExchangeId>,
   symbol: Ref<string | null | undefined>,
   range: Ref<RangePreset>
 ) {
@@ -24,8 +31,10 @@ export function useFundingHistory(
     'funding-history',
     async () => {
       if (!symbol.value) return []
+      const cfg = EXCHANGES[exchange.value].fundingRates
+
       let query = supabase
-        .from('coinbase_funding_rates')
+        .from(cfg.table)
         .select('symbol, funding_time, funding_rate, funding_interval')
         .eq('symbol', symbol.value)
         .order('funding_time', { ascending: false })
@@ -39,10 +48,10 @@ export function useFundingHistory(
 
       const { data, error } = await query
       if (error) throw error
-      return (data ?? []) as FundingRate[]
+      return (data ?? []) as unknown as FundingRate[]
     },
     {
-      watch: [symbol, range],
+      watch: [exchange, symbol, range],
       default: () => []
     }
   )
