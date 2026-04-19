@@ -13,6 +13,10 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  experimental: {
+    serverAppConfig: false
+  },
+
   compatibilityDate: '2024-07-11',
 
   eslint: {
