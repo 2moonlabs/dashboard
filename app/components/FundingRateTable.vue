@@ -72,7 +72,7 @@ const columns: TableColumn<FundingRate>[] = [
       class="flex items-center justify-between px-4 py-3 border-t border-default"
     >
       <p class="text-xs text-muted tabular-nums">
-        {{ data.length }} rows
+        Total {{ data.length }} rows
       </p>
       <UPagination
         v-model:page="page"
