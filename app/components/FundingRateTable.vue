@@ -76,9 +76,18 @@ const columns: TableColumn<FundingRate>[] = [
       </p>
       <UPagination
         v-model:page="page"
+        class="hidden sm:flex"
         :total="data.length"
         :items-per-page="pageSize"
+        :sibling-count="1"
         show-edges
+      />
+      <UPagination
+        v-model:page="page"
+        class="sm:hidden"
+        :total="data.length"
+        :items-per-page="pageSize"
+        :sibling-count="0"
       />
     </div>
   </UCard>
