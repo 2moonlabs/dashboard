@@ -13,15 +13,6 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  supabase: {
-    types: false,
-    redirectOptions: {
-      login: '/login',
-      callback: '/confirm',
-      exclude: ['/login']
-    }
-  },
-
   compatibilityDate: '2024-07-11',
 
   eslint: {
@@ -30,6 +21,15 @@ export default defineNuxtConfig({
         commaDangle: 'never',
         braceStyle: '1tbs'
       }
+    }
+  },
+
+  supabase: {
+    types: false,
+    redirectOptions: {
+      login: '/login',
+      callback: '/confirm',
+      exclude: ['/login']
     }
   }
 })

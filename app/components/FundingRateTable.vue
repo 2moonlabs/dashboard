@@ -15,7 +15,9 @@ const pagedRows = computed(() =>
   props.data.slice((page.value - 1) * pageSize, page.value * pageSize)
 )
 
-watch(() => props.data, () => { page.value = 1 })
+watch(() => props.data, () => {
+  page.value = 1
+})
 
 function formatInterval(n: number): string {
   if (n >= 1000) return `${n / 3600}h`

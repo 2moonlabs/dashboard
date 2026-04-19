@@ -6,10 +6,10 @@ const selectedExchange = ref<ExchangeId>('coinbase')
 
 const { data: symbols, error: symbolsError } = await useSymbols(selectedExchange)
 
-const selectedSymbol = ref<string | null>(symbols.value?.[0] ?? null)
+const selectedSymbol = ref<string | undefined>(symbols.value?.[0])
 watch(symbols, (list) => {
   if (!list?.length) {
-    selectedSymbol.value = null
+    selectedSymbol.value = undefined
     return
   }
   if (!selectedSymbol.value || !list.includes(selectedSymbol.value)) {
