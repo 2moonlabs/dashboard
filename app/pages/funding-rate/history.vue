@@ -35,16 +35,10 @@ const fetchError = computed(() => symbolsError.value || historyError.value)
 </script>
 
 <template>
-  <UDashboardPanel id="funding-history">
-    <template #header>
-      <UDashboardNavbar title="Funding Rate History" :ui="{ right: 'gap-3' }">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-      </UDashboardNavbar>
-
-      <UDashboardToolbar>
-        <template #left>
+  <AppPage title="Funding Rate History">
+    <template #toolbar>
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <USelect
             v-model="selectedExchange"
             :items="EXCHANGE_OPTIONS"
@@ -58,19 +52,20 @@ const fetchError = computed(() => symbolsError.value || historyError.value)
             class="min-w-56"
             searchable
           />
-        </template>
-        <template #right>
+        </div>
+
+        <div class="flex flex-col gap-3 sm:flex-row sm:justify-end lg:shrink-0">
           <USelect
             v-model="range"
             :items="rangeOptions"
             value-key="value"
             class="min-w-36"
           />
-        </template>
-      </UDashboardToolbar>
+        </div>
+      </div>
     </template>
 
-    <template #body>
+    <template #default>
       <div class="space-y-4 sm:space-y-6">
         <UAlert
           v-if="fetchError"
@@ -92,5 +87,5 @@ const fetchError = computed(() => symbolsError.value || historyError.value)
         <FundingRateTable :data="history ?? []" :loading="loading" />
       </div>
     </template>
-  </UDashboardPanel>
+  </AppPage>
 </template>

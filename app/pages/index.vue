@@ -3,16 +3,8 @@ const user = useSupabaseUser()
 </script>
 
 <template>
-  <UDashboardPanel id="overview">
-    <template #header>
-      <UDashboardNavbar title="Overview">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-      </UDashboardNavbar>
-    </template>
-
-    <template #body>
+  <AppPage title="Overview">
+    <template #default>
       <UCard>
         <template #header>
           <p class="text-xs text-muted uppercase">
@@ -28,5 +20,5 @@ const user = useSupabaseUser()
         </p>
       </UCard>
     </template>
-  </UDashboardPanel>
+  </AppPage>
 </template>
