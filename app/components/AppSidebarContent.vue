@@ -66,12 +66,6 @@ function setColorMode(mode: 'light' | 'dark') {
   colorMode.preference = mode
 }
 
-function themeButtonClass(mode: 'light' | 'dark') {
-  return colorModeReady.value && colorMode.value === mode
-    ? 'border-primary/30 bg-primary/12 text-primary'
-    : 'border-default text-muted hover:text-highlighted'
-}
-
 async function logout() {
   const { error } = await supabase.auth.signOut()
   if (error) {
@@ -104,7 +98,7 @@ async function logout() {
       </NuxtLink>
     </div>
 
-    <nav class="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+    <nav class="flex-1 overflow-y-auto px-3 py-4">
       <div class="space-y-1">
         <NuxtLink
           v-for="link in primaryLinks"
@@ -120,16 +114,18 @@ async function logout() {
           />
           <span>{{ link.label }}</span>
         </NuxtLink>
-      </div>
 
-      <div class="space-y-1">
         <button
           type="button"
-          class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs font-medium uppercase tracking-[0.2em] transition"
-          :class="isFundingActive() ? 'text-primary' : 'text-muted hover:text-highlighted'"
+          class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition"
+          :class="isFundingActive() ? 'text-primary' : 'text-muted hover:bg-elevated hover:text-highlighted'"
           @click="fundingOpen = !fundingOpen"
         >
-          <span>Funding Rate</span>
+          <UIcon
+            name="i-lucide-trending-up-down"
+            class="size-4 shrink-0"
+          />
+          <span class="flex-1">Funding Rate</span>
           <UIcon
             name="i-lucide-chevron-down"
             class="size-4 shrink-0 transition"
@@ -145,11 +141,10 @@ async function logout() {
             v-for="link in fundingLinks"
             :key="link.to"
             :to="link.to"
-            class="ml-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition"
+            class="ml-7 flex items-center rounded-md px-3 py-2 text-sm transition"
             :class="linkClass(link.to)"
             @click="navigate"
           >
-            <span class="size-1.5 rounded-full bg-current opacity-70" />
             <span>{{ link.label }}</span>
           </NuxtLink>
         </div>
@@ -157,38 +152,43 @@ async function logout() {
     </nav>
 
     <div class="border-t border-default px-4 py-4">
-      <div class="grid grid-cols-4 gap-2">
-        <button
-          type="button"
-          class="col-span-1 flex items-center justify-center rounded-md border px-3 py-2 text-sm transition"
-          :class="themeButtonClass('light')"
-          aria-label="Switch to light mode"
-          title="Light mode"
-          @click="setColorMode('light')"
-        >
-          <UIcon
-            name="i-lucide-sun"
-            class="size-4 shrink-0"
+      <div class="flex items-center gap-2">
+        <div class="relative flex shrink-0 rounded-md border border-default p-0.5">
+          <div
+            class="absolute inset-y-0.5 left-0.5 w-[calc(50%-2px)] rounded bg-primary/12 transition-transform duration-200 ease-out"
+            :class="colorModeReady && colorMode.value === 'dark' ? 'translate-x-full' : ''"
           />
-        </button>
+          <button
+            type="button"
+            class="relative z-10 flex size-8 items-center justify-center rounded transition"
+            :class="colorModeReady && colorMode.value === 'light' ? 'text-primary' : 'text-muted hover:text-highlighted'"
+            aria-label="Switch to light mode"
+            title="Light mode"
+            @click="setColorMode('light')"
+          >
+            <UIcon
+              name="i-lucide-sun"
+              class="size-4 shrink-0"
+            />
+          </button>
+          <button
+            type="button"
+            class="relative z-10 flex size-8 items-center justify-center rounded transition"
+            :class="colorModeReady && colorMode.value === 'dark' ? 'text-primary' : 'text-muted hover:text-highlighted'"
+            aria-label="Switch to dark mode"
+            title="Dark mode"
+            @click="setColorMode('dark')"
+          >
+            <UIcon
+              name="i-lucide-moon"
+              class="size-4 shrink-0"
+            />
+          </button>
+        </div>
 
         <button
           type="button"
-          class="col-span-1 flex items-center justify-center rounded-md border px-3 py-2 text-sm transition"
-          :class="themeButtonClass('dark')"
-          aria-label="Switch to dark mode"
-          title="Dark mode"
-          @click="setColorMode('dark')"
-        >
-          <UIcon
-            name="i-lucide-moon"
-            class="size-4 shrink-0"
-          />
-        </button>
-
-        <button
-          type="button"
-          class="col-span-2 flex items-center justify-center gap-2 rounded-md border border-default px-3 py-2 text-sm text-muted transition hover:text-highlighted"
+          class="flex flex-1 items-center justify-center gap-2 rounded-md border border-default px-3 py-2 text-sm text-muted transition hover:text-highlighted"
           @click="logout"
         >
           <UIcon
