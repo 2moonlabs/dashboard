@@ -4,8 +4,7 @@ export default defineNuxtConfig({
     '@nuxt/eslint',
     '@nuxt/ui',
     '@nuxtjs/supabase',
-    '@vueuse/nuxt',
-    '@vercel/analytics'
+    '@vueuse/nuxt'
   ],
 
   devtools: {
