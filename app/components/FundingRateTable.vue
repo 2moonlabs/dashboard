@@ -58,7 +58,6 @@ const columns: TableColumn<FundingRate>[] = [
       :columns="columns"
       :loading="loading"
       sticky
-      class="min-h-48"
     >
       <template #empty>
         <div class="flex items-center justify-center py-10 text-sm text-muted">

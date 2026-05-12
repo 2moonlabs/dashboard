@@ -21,6 +21,11 @@ const primaryLinks = [
     to: '/accounts'
   },
   {
+    label: 'Transfers',
+    icon: 'i-lucide-arrow-left-right',
+    to: '/transfers'
+  },
+  {
     label: 'Strategies',
     icon: 'i-lucide-layers',
     to: '/strategies'
