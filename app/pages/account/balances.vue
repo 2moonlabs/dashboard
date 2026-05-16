@@ -26,7 +26,7 @@ const filteredAccounts = computed(() => {
 </script>
 
 <template>
-  <AppPage title="Accounts">
+  <AppPage title="Account Balances">
     <template #toolbar>
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
         <USelect

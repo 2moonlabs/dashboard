@@ -246,7 +246,7 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
 </script>
 
 <template>
-  <AppPage title="Transfers">
+  <AppPage title="Account Transfers">
     <template #actions>
       <UButton
         icon="i-lucide-plus"

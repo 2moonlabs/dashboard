@@ -9,27 +9,14 @@ const supabase = useSupabaseClient()
 const toast = useToast()
 const colorModeReady = ref(false)
 
-const primaryLinks = [
-  {
-    label: 'Overview',
-    icon: 'i-lucide-chart-no-axes-column-increasing',
-    to: '/'
-  },
-  {
-    label: 'Accounts',
-    icon: 'i-lucide-wallet',
-    to: '/accounts'
-  },
-  {
-    label: 'Transfers',
-    icon: 'i-lucide-arrow-left-right',
-    to: '/transfers'
-  },
-  {
-    label: 'Strategies',
-    icon: 'i-lucide-layers',
-    to: '/strategies'
-  }
+const accountLinks = [
+  { label: 'Balances', to: '/account/balances' },
+  { label: 'Transfers', to: '/account/transfers' }
+]
+
+const statementLinks = [
+  { label: 'Daily' },
+  { label: 'Monthly' }
 ]
 
 const fundingLinks = [
@@ -37,9 +24,15 @@ const fundingLinks = [
   { label: 'Arbitrage', to: '/funding-rate/arbitrage' }
 ]
 
+const accountOpen = ref(isAccountActive())
+const statementOpen = ref(false)
 const fundingOpen = ref(route.path.startsWith('/funding-rate/'))
 
 watch(() => route.path, (path) => {
+  if (isAccountActive()) {
+    accountOpen.value = true
+  }
+
   if (path.startsWith('/funding-rate/')) {
     fundingOpen.value = true
   }
@@ -57,9 +50,19 @@ function isFundingActive() {
   return route.path.startsWith('/funding-rate/')
 }
 
+function isAccountActive() {
+  return accountLinks.some(link => link.to === route.path)
+}
+
 function linkClass(path: string) {
   return isActive(path)
     ? 'bg-elevated text-primary'
+    : 'text-muted hover:bg-elevated hover:text-highlighted'
+}
+
+function groupClass(active: boolean) {
+  return active
+    ? 'text-primary'
     : 'text-muted hover:bg-elevated hover:text-highlighted'
 }
 
@@ -106,24 +109,101 @@ async function logout() {
     <nav class="flex-1 overflow-y-auto px-3 py-4">
       <div class="space-y-1">
         <NuxtLink
-          v-for="link in primaryLinks"
-          :key="link.to"
-          :to="link.to"
+          to="/"
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition"
-          :class="linkClass(link.to)"
+          :class="linkClass('/')"
           @click="navigate"
         >
           <UIcon
-            :name="link.icon"
+            name="i-lucide-chart-no-axes-column-increasing"
             class="size-4 shrink-0"
           />
-          <span>{{ link.label }}</span>
+          <span>Overview</span>
         </NuxtLink>
 
         <button
           type="button"
           class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition"
-          :class="isFundingActive() ? 'text-primary' : 'text-muted hover:bg-elevated hover:text-highlighted'"
+          :class="groupClass(isAccountActive())"
+          @click="accountOpen = !accountOpen"
+        >
+          <UIcon
+            name="i-lucide-wallet"
+            class="size-4 shrink-0"
+          />
+          <span class="flex-1">Account</span>
+          <UIcon
+            name="i-lucide-chevron-down"
+            class="size-4 shrink-0 transition"
+            :class="accountOpen ? 'rotate-180' : ''"
+          />
+        </button>
+
+        <div
+          v-show="accountOpen"
+          class="space-y-1"
+        >
+          <NuxtLink
+            v-for="link in accountLinks"
+            :key="link.to"
+            :to="link.to"
+            class="ml-7 flex items-center rounded-md px-3 py-2 text-sm transition"
+            :class="linkClass(link.to)"
+            @click="navigate"
+          >
+            <span>{{ link.label }}</span>
+          </NuxtLink>
+        </div>
+
+        <button
+          type="button"
+          class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-muted transition hover:bg-elevated hover:text-highlighted"
+          @click="statementOpen = !statementOpen"
+        >
+          <UIcon
+            name="i-lucide-file-text"
+            class="size-4 shrink-0"
+          />
+          <span class="flex-1">Statement</span>
+          <UIcon
+            name="i-lucide-chevron-down"
+            class="size-4 shrink-0 transition"
+            :class="statementOpen ? 'rotate-180' : ''"
+          />
+        </button>
+
+        <div
+          v-show="statementOpen"
+          class="space-y-1"
+        >
+          <button
+            v-for="link in statementLinks"
+            :key="link.label"
+            type="button"
+            class="ml-7 flex w-[calc(100%-1.75rem)] cursor-not-allowed items-center rounded-md px-3 py-2 text-left text-sm text-muted opacity-70"
+            disabled
+          >
+            <span>{{ link.label }}</span>
+          </button>
+        </div>
+
+        <NuxtLink
+          to="/strategy"
+          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition"
+          :class="linkClass('/strategy')"
+          @click="navigate"
+        >
+          <UIcon
+            name="i-lucide-layers"
+            class="size-4 shrink-0"
+          />
+          <span>Strategy</span>
+        </NuxtLink>
+
+        <button
+          type="button"
+          class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition"
+          :class="groupClass(isFundingActive())"
           @click="fundingOpen = !fundingOpen"
         >
           <UIcon
