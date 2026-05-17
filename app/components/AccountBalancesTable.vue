@@ -33,17 +33,9 @@ const expandedOptions = {
   getRowCanExpand: (row: { original: AccountBalance }) => row.original.assets.length > 0
 }
 
-function getDefaultExpanded(data: AccountBalance[]) {
-  return Object.fromEntries(
-    data
-      .filter(account => account.assets.length)
-      .map(account => [accountRefKey(account), true])
-  )
-}
-
-watch(() => props.data, (data) => {
-  expanded.value = getDefaultExpanded(data)
-}, { immediate: true })
+watch(() => props.data, () => {
+  expanded.value = {}
+})
 
 function getRowId(row: AccountBalance) {
   return accountRefKey(row)
