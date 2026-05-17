@@ -411,6 +411,7 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
               v-model="form.amount"
               :min="0"
               :step="0.00000001"
+              :format-options="{ maximumFractionDigits: 12 }"
               :decrement="false"
               :increment="false"
               class="w-full"

@@ -33,9 +33,17 @@ const expandedOptions = {
   getRowCanExpand: (row: { original: AccountBalance }) => row.original.assets.length > 0
 }
 
-watch(() => props.data, () => {
-  expanded.value = {}
-})
+function getDefaultExpanded(data: AccountBalance[]) {
+  return Object.fromEntries(
+    data
+      .filter(account => account.assets.length)
+      .map(account => [accountRefKey(account), true])
+  )
+}
+
+watch(() => props.data, (data) => {
+  expanded.value = getDefaultExpanded(data)
+}, { immediate: true })
 
 function getRowId(row: AccountBalance) {
   return accountRefKey(row)
@@ -84,7 +92,7 @@ const columns: TableColumn<AccountBalance>[] = [
   {
     id: 'account',
     header: 'Account',
-    cell: ({ row }) => h('span', { class: 'font-mono text-xs text-highlighted' }, formatAccount(row.original))
+    cell: ({ row }) => h('span', { class: 'font-mono text-sm text-highlighted' }, formatAccount(row.original))
   },
   {
     id: 'status',
@@ -171,12 +179,12 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
       :get-row-id="getRowId"
       :loading="loading"
       :ui="{
-        td: '[&[colspan]]:pe-0'
+        td: '[&[colspan]]:p-0'
       }"
       sticky
     >
       <template #expanded="{ row }">
-        <div class="py-3 pl-12 sm:pl-40">
+        <div class="pb-3 pl-12 sm:pl-40">
           <UTable
             v-if="row.original.assets.length"
             :data="row.original.assets"

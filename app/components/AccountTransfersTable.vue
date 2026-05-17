@@ -73,6 +73,10 @@ const columns: TableColumn<AccountTransfer>[] = [
       :data="data"
       :columns="columns"
       :loading="loading"
+      :ui="{
+        th: 'text-xs',
+        td: 'text-xs'
+      }"
       sticky
     >
       <template #empty>
