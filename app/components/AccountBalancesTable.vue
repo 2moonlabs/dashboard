@@ -41,16 +41,12 @@ function getRowId(row: AccountBalance) {
   return accountRefKey(row)
 }
 
-function formatTotal(value: number) {
-  return totalFormatter.format(value)
-}
-
 function formatCurrency(value: number) {
   return `$${totalFormatter.format(value)}`
 }
 
 function formatAccountTotal(value: number | null) {
-  return value === null ? 'No snapshot' : formatCurrency(value)
+  return value === null ? 'No data' : formatCurrency(value)
 }
 
 function formatBalance(value: number) {
@@ -58,7 +54,7 @@ function formatBalance(value: number) {
 }
 
 function formatAccount(row: AccountBalance) {
-  return `${row.connector} / ${row.account_user} / ${row.account_name}`
+  return `${row.connector} / ${row.account_type} / ${row.account_user} / ${row.account_name}`
 }
 
 function getAccountStatus(_row: AccountBalance): AccountStatus {
@@ -89,11 +85,6 @@ const columns: TableColumn<AccountBalance>[] = [
     id: 'account',
     header: 'Account',
     cell: ({ row }) => h('span', { class: 'font-mono text-xs text-highlighted' }, formatAccount(row.original))
-  },
-  {
-    accessorKey: 'account_type',
-    header: 'Type',
-    cell: ({ row }) => h('span', { class: 'text-highlighted' }, row.original.account_type)
   },
   {
     id: 'status',
@@ -154,7 +145,7 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
         td: 'text-right'
       }
     },
-    cell: ({ row }) => h('span', { class: 'tabular-nums text-highlighted' }, formatTotal(row.original.quote))
+    cell: ({ row }) => h('span', { class: 'tabular-nums text-highlighted' }, formatCurrency(row.original.quote))
   },
   {
     accessorKey: 'value',
@@ -206,7 +197,7 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
 
       <template #empty>
         <div class="flex items-center justify-center py-10 text-sm text-muted">
-          No accounts
+          No data
         </div>
       </template>
 
@@ -216,7 +207,6 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
           <td class="p-4 text-xs font-medium uppercase tracking-wider text-muted whitespace-nowrap">
             Total
           </td>
-          <td class="p-4 whitespace-nowrap" />
           <td class="p-4 whitespace-nowrap" />
           <td class="p-4 text-right whitespace-nowrap">
             <span class="tabular-nums text-sm font-semibold text-highlighted">{{ formatCurrency(total) }}</span>

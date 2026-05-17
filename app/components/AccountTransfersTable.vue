@@ -26,6 +26,11 @@ function formatAmount(value: number) {
 
 const columns: TableColumn<AccountTransfer>[] = [
   {
+    accessorKey: 'id',
+    header: 'ID',
+    cell: ({ row }) => h('span', { class: 'tabular-nums' }, row.original.id)
+  },
+  {
     accessorKey: 'ts',
     header: 'Time',
     cell: ({ row }) => h('span', { class: 'tabular-nums' }, formatTime(row.original.ts))

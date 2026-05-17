@@ -10,11 +10,10 @@ export interface AccountRef {
   connector: string
   account_user: string
   account_name: string
-}
-
-export interface Account extends AccountRef {
   account_type: string
 }
+
+export type Account = AccountRef
 
 export interface AccountSnapshot extends Account {
   snapshot_ts: string
@@ -47,9 +46,11 @@ export interface AccountTransfer {
   from_connector: string | null
   from_account_user: string | null
   from_account_name: string | null
+  from_account_type: string | null
   to_connector: string | null
   to_account_user: string | null
   to_account_name: string | null
+  to_account_type: string | null
   asset: string
   amount: number
   note: string
@@ -61,9 +62,11 @@ export interface NewAccountTransferInput {
   from_connector: string | null
   from_account_user: string | null
   from_account_name: string | null
+  from_account_type: string | null
   to_connector: string | null
   to_account_user: string | null
   to_account_name: string | null
+  to_account_type: string | null
   asset: string
   amount: number
   note: string
@@ -94,26 +97,28 @@ export function compareAccounts(a: Account, b: Account) {
   return compareConnectors(a.connector, b.connector)
     || a.account_user.localeCompare(b.account_user)
     || a.account_name.localeCompare(b.account_name)
+    || a.account_type.localeCompare(b.account_type)
 }
 
 export function accountRefKey(ref: AccountRef) {
-  return JSON.stringify([ref.connector, ref.account_user, ref.account_name])
+  return JSON.stringify([ref.connector, ref.account_user, ref.account_name, ref.account_type])
 }
 
 export function accountRefLabel(ref: AccountRef) {
-  return `${ref.connector}.${ref.account_user}.${ref.account_name}`
+  return `${ref.connector}.${ref.account_type}.${ref.account_user}.${ref.account_name}`
 }
 
 export function transferSideLabel(transfer: AccountTransfer, side: 'from' | 'to') {
   const connector = transfer[`${side}_connector`]
   const accountUser = transfer[`${side}_account_user`]
   const accountName = transfer[`${side}_account_name`]
+  const accountType = transfer[`${side}_account_type`]
 
-  if (!connector || !accountUser || !accountName) {
+  if (!connector || !accountUser || !accountName || !accountType) {
     return 'External'
   }
 
-  return `${connector}.${accountUser}.${accountName}`
+  return `${connector}.${accountType}.${accountUser}.${accountName}`
 }
 
 export function uniqueSortedConnectors(connectors: string[]) {

@@ -70,20 +70,24 @@ function transferAccountKey(transfer: {
   from_connector: string | null
   from_account_user: string | null
   from_account_name: string | null
+  from_account_type: string | null
   to_connector: string | null
   to_account_user: string | null
   to_account_name: string | null
+  to_account_type: string | null
 }, side: 'from' | 'to') {
   const connector = transfer[`${side}_connector`]
   const accountUser = transfer[`${side}_account_user`]
   const accountName = transfer[`${side}_account_name`]
+  const accountType = transfer[`${side}_account_type`]
 
-  if (!connector || !accountUser || !accountName) return null
+  if (!connector || !accountUser || !accountName || !accountType) return null
 
   return accountRefKey({
     connector,
     account_user: accountUser,
-    account_name: accountName
+    account_name: accountName,
+    account_type: accountType
   })
 }
 
@@ -152,8 +156,7 @@ const form = reactive<TransferForm>({
 
 const formAccountOptions = computed(() => (accounts.value ?? []).map(account => ({
   label: accountRefLabel(account),
-  value: accountRefKey(account),
-  description: account.account_type
+  value: accountRefKey(account)
 })))
 
 const hasAccounts = computed(() => Boolean(accounts.value?.length))
@@ -220,9 +223,11 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
       from_connector: fromAccount?.connector ?? null,
       from_account_user: fromAccount?.account_user ?? null,
       from_account_name: fromAccount?.account_name ?? null,
+      from_account_type: fromAccount?.account_type ?? null,
       to_connector: toAccount?.connector ?? null,
       to_account_user: toAccount?.account_user ?? null,
       to_account_name: toAccount?.account_name ?? null,
+      to_account_type: toAccount?.account_type ?? null,
       asset: event.data.asset.trim().toUpperCase(),
       amount: event.data.amount,
       note: event.data.note?.trim() ?? ''
