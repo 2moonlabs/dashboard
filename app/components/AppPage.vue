@@ -10,7 +10,7 @@ defineProps<{
     <section class="border-b border-default pb-4">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0">
-          <h1 class="text-lg font-semibold text-highlighted sm:text-xl">
+          <h1 class="text-xl font-semibold text-highlighted tracking-tight sm:text-2xl">
             {{ title }}
           </h1>
           <p

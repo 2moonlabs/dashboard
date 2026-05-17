@@ -20,9 +20,9 @@ const balanceFormatter = new Intl.NumberFormat('en-US', {
 
 type AccountStatus = 'Active' | 'Idle'
 
-const statusColors: Record<AccountStatus, 'success' | 'neutral'> = {
-  Active: 'success',
-  Idle: 'neutral'
+const statusDotClass: Record<AccountStatus, string> = {
+  Active: 'bg-success',
+  Idle: 'bg-muted'
 }
 
 const total = computed(() =>
@@ -45,8 +45,12 @@ function formatTotal(value: number) {
   return totalFormatter.format(value)
 }
 
+function formatCurrency(value: number) {
+  return `$${totalFormatter.format(value)}`
+}
+
 function formatAccountTotal(value: number | null) {
-  return value === null ? 'No snapshot' : formatTotal(value)
+  return value === null ? 'No snapshot' : formatCurrency(value)
 }
 
 function formatBalance(value: number) {
@@ -97,12 +101,14 @@ const columns: TableColumn<AccountBalance>[] = [
     cell: ({ row }) => {
       const status = getAccountStatus(row.original)
 
-      return h(resolveComponent('UBadge'), {
-        color: statusColors[status],
-        label: status,
-        size: 'sm',
-        variant: 'soft'
-      })
+      return h(
+        'span',
+        { class: 'inline-flex items-center gap-1.5 text-xs text-muted' },
+        [
+          h('span', { class: `size-1.5 rounded-full ${statusDotClass[status]}` }),
+          status
+        ]
+      )
     }
   },
   {
@@ -159,7 +165,7 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
         td: 'text-right'
       }
     },
-    cell: ({ row }) => h('span', { class: 'tabular-nums text-highlighted' }, formatTotal(row.original.value))
+    cell: ({ row }) => h('span', { class: 'tabular-nums text-highlighted' }, formatCurrency(row.original.value))
   }
 ]
 </script>
@@ -173,17 +179,20 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
       :expanded-options="expandedOptions"
       :get-row-id="getRowId"
       :loading="loading"
+      :ui="{
+        td: '[&[colspan]]:pe-0'
+      }"
       sticky
     >
       <template #expanded="{ row }">
-        <div class="py-3 pr-3 pl-12 sm:pl-40">
+        <div class="py-3 pl-12 sm:pl-40">
           <UTable
             v-if="row.original.assets.length"
             :data="row.original.assets"
             :columns="assetColumns"
             :ui="{
-              th: 'text-xs text-toned',
-              td: 'text-xs text-highlighted'
+              th: 'px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-dimmed whitespace-nowrap',
+              td: 'px-3 py-2 text-xs text-highlighted whitespace-nowrap'
             }"
           />
           <div
@@ -202,15 +211,15 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
       </template>
 
       <template #body-bottom>
-        <tr v-if="data.length" class="border-t border-default bg-elevated/30">
-          <td class="p-4 text-sm text-highlighted whitespace-nowrap" />
-          <td class="p-4 text-sm font-semibold text-highlighted whitespace-nowrap">
+        <tr v-if="data.length" class="border-t-2 border-default bg-elevated/40">
+          <td class="p-4 whitespace-nowrap" />
+          <td class="p-4 text-xs font-medium uppercase tracking-wider text-muted whitespace-nowrap">
             Total
           </td>
-          <td class="p-4 text-sm text-highlighted whitespace-nowrap" />
-          <td class="p-4 text-sm text-highlighted whitespace-nowrap" />
-          <td class="p-4 text-sm font-semibold text-right text-highlighted whitespace-nowrap">
-            <span class="tabular-nums">{{ formatTotal(total) }}</span>
+          <td class="p-4 whitespace-nowrap" />
+          <td class="p-4 whitespace-nowrap" />
+          <td class="p-4 text-right whitespace-nowrap">
+            <span class="tabular-nums text-sm font-semibold text-highlighted">{{ formatCurrency(total) }}</span>
           </td>
         </tr>
       </template>

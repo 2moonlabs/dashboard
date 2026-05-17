@@ -24,7 +24,16 @@ const y = (d: Point) => d.rate
 const zeroY = () => 0
 
 const formatPercent = (v: number) => `${(v * 100).toFixed(6)}%`
-const formatShortDate = (d: Date) => format(d, 'MM-dd')
+
+const formatPercentShort = (v: number) => {
+  if (v === 0) return '0%'
+  const pct = v * 100
+  const abs = Math.abs(pct)
+  const decimals = abs >= 1 ? 2 : abs >= 0.1 ? 3 : abs >= 0.01 ? 4 : 5
+  return `${pct.toFixed(decimals).replace(/\.?0+$/, '')}%`
+}
+
+const formatTickDate = (d: Date) => format(d, 'MM-dd HH:mm')
 const formatFullDate = (d: Date) => format(d, 'yyyy-MM-dd HH:mm')
 
 const xTicks = (i: number) => {
@@ -33,13 +42,21 @@ const xTicks = (i: number) => {
   const len = points.value.length
   const step = Math.max(1, Math.floor(len / 8))
   if (i === 0 || i === len - 1 || i % step === 0) {
-    return formatShortDate(p.time)
+    return formatTickDate(p.time)
   }
   return ''
 }
 
-const yTicks = (v: number) => formatPercent(v)
+const yTicks = (v: number) => formatPercentShort(v)
 const tooltipTemplate = (d: Point) => `${formatFullDate(d.time)}\n${formatPercent(d.rate)}`
+
+const latest = computed(() => points.value[points.value.length - 1])
+const latestClass = computed(() => {
+  const rate = latest.value?.rate ?? 0
+  if (rate > 0) return 'text-success'
+  if (rate < 0) return 'text-error'
+  return 'text-highlighted'
+})
 </script>
 
 <template>
@@ -50,10 +67,11 @@ const tooltipTemplate = (d: Point) => `${formatFullDate(d.time)}\n${formatPercen
           Funding Rate
         </p>
         <p
-          v-if="points.length"
-          class="text-sm text-highlighted font-medium"
+          v-if="latest"
+          class="text-sm font-medium"
         >
-          Latest: {{ formatPercent(points[points.length - 1]!.rate) }}
+          <span class="text-muted">Latest: </span>
+          <span :class="[latestClass, 'tabular-nums']">{{ formatPercent(latest.rate) }}</span>
         </p>
       </div>
     </template>
