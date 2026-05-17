@@ -16,6 +16,30 @@ export interface Account extends AccountRef {
   account_type: string
 }
 
+export interface AccountSnapshot extends Account {
+  snapshot_ts: string
+  total: number
+}
+
+export interface AccountSnapshotAsset extends AccountRef {
+  snapshot_ts: string
+  asset: string
+  balance: number
+  quote: number
+  value: number
+}
+
+export interface AccountBalance extends Account {
+  snapshot_ts: string | null
+  total: number | null
+  assets: AccountSnapshotAsset[]
+}
+
+export interface LatestAccountBalances {
+  snapshotTs: string | null
+  balances: AccountBalance[]
+}
+
 export interface AccountTransfer {
   id: number
   ts: string
