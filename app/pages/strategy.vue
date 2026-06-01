@@ -53,6 +53,14 @@ const filteredStrategies = computed(() =>
     selectedTag.value === 'all' || strategy.tags.includes(selectedTag.value)
   )
 )
+const snapshotTs = computed(() =>
+  (strategies.value ?? []).find(strategy => strategy.snapshot)?.snapshot?.snapshot_ts ?? null
+)
+const snapshotLabel = computed(() => {
+  if (!snapshotTs.value) return 'No snapshot'
+
+  return `${new Date(snapshotTs.value).toISOString().slice(0, 19).replace('T', ' ')} UTC`
+})
 
 watch(tagOptions, (options) => {
   if (!options.some(option => option.value === selectedTag.value)) {
@@ -306,9 +314,10 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
             class="items-center"
           />
         </div>
-        <p class="text-xs text-muted tabular-nums lg:text-right">
-          Showing {{ filteredStrategies.length }} of {{ strategies?.length ?? 0 }} strategies
-        </p>
+        <div class="text-xs text-muted tabular-nums lg:text-right">
+          <p>Snapshot {{ snapshotLabel }}</p>
+          <p>Showing {{ filteredStrategies.length }} of {{ strategies?.length ?? 0 }} strategies</p>
+        </div>
       </div>
     </template>
 

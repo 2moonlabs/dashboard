@@ -16,8 +16,19 @@ export interface StrategyAccount extends AccountRef {
   asset: string | null
 }
 
+export interface StrategySnapshot {
+  snapshot_ts: string
+  total: number
+  today: number | null
+  this_week: number | null
+  this_month: number | null
+  last_order_placed_at: string | null
+  last_trade_filled_at: string | null
+}
+
 export interface StrategyWithAccounts extends Strategy {
   accounts: StrategyAccount[]
+  snapshot: StrategySnapshot | null
 }
 
 export interface NewStrategyAccountInput extends AccountRef {

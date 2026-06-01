@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { NewStrategyInput, Strategy, StrategyAccount, StrategyWithAccounts, UpdateStrategyInput } from '~/types/strategies'
+import type { NewStrategyInput, Strategy, StrategyAccount, StrategySnapshot, StrategyWithAccounts, UpdateStrategyInput } from '~/types/strategies'
 import { normalizeStrategyAssets, normalizeStrategyTags, strategyAccountAssetKey } from '~/types/strategies'
 import { accountRefKey, compareAccounts } from '~/types/accounts'
 
@@ -26,6 +26,14 @@ type StrategyAccountRow = {
 
 type NewStrategyAccountRow = Omit<StrategyAccountRow, 'id'>
 
+type StrategySnapshotRow = {
+  snapshot_ts: string
+  strategy_id: number
+  total: number
+  last_order_placed_at: string | null
+  last_trade_filled_at: string | null
+}
+
 interface StrategiesDatabase {
   public: {
     Tables: {
@@ -39,6 +47,12 @@ interface StrategiesDatabase {
         Row: StrategyAccountRow
         Insert: NewStrategyAccountRow
         Update: Partial<NewStrategyAccountRow>
+        Relationships: []
+      }
+      strategy_snapshots: {
+        Row: StrategySnapshotRow
+        Insert: StrategySnapshotRow
+        Update: Partial<StrategySnapshotRow>
         Relationships: []
       }
     }
@@ -55,6 +69,15 @@ const StrictInteger = z.preprocess(
     return value
   },
   z.number().int()
+)
+
+const StrictNumber = z.preprocess(
+  (value) => {
+    if (value === '' || value === null || value === undefined) return undefined
+    if (typeof value === 'string') return Number(value)
+    return value
+  },
+  z.number().finite()
 )
 
 const StrategyRowSchema = z.object({
@@ -79,6 +102,20 @@ const StrategyAccountRowSchema = z.object({
 })
 
 const StrategyAccountRowsSchema = z.array(StrategyAccountRowSchema)
+
+const LatestStrategySnapshotRowSchema = z.object({
+  snapshot_ts: z.string().min(1)
+})
+
+const StrategySnapshotRowSchema = z.object({
+  snapshot_ts: z.string().min(1),
+  strategy_id: StrictInteger,
+  total: StrictNumber,
+  last_order_placed_at: z.string().nullable(),
+  last_trade_filled_at: z.string().nullable()
+})
+
+const StrategySnapshotRowsSchema = z.array(StrategySnapshotRowSchema)
 
 const NewStrategyAccountSchema = z.object({
   connector: z.string().min(1),
@@ -111,6 +148,8 @@ const StrategyIdSchema = z.object({
   id: StrictInteger
 })
 
+type ParsedStrategySnapshotRow = z.output<typeof StrategySnapshotRowSchema>
+
 function compareStrategies(a: Strategy, b: Strategy) {
   return Number(b.active) - Number(a.active)
     || a.strategy_name.localeCompare(b.strategy_name)
@@ -126,6 +165,48 @@ function compareStrategyAccounts(a: StrategyAccount, b: StrategyAccount) {
 function nullableText(value: string | null) {
   const text = value?.trim() ?? ''
   return text || null
+}
+
+function utcStartOfDay(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+}
+
+function utcStartOfMonth(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1))
+}
+
+function buildBaselineTotals(rows: ParsedStrategySnapshotRow[]) {
+  const baselines = new Map<number, number>()
+
+  for (const row of rows) {
+    if (baselines.has(row.strategy_id)) continue
+
+    baselines.set(row.strategy_id, row.total)
+  }
+
+  return baselines
+}
+
+function deltaFromBaseline(row: ParsedStrategySnapshotRow, baselines: Map<number, number>) {
+  const baseline = baselines.get(row.strategy_id)
+  return baseline === undefined ? null : row.total - baseline
+}
+
+function buildSnapshot(
+  row: ParsedStrategySnapshotRow,
+  todayBaselines: Map<number, number>,
+  weekBaselines: Map<number, number>,
+  monthBaselines: Map<number, number>
+): StrategySnapshot {
+  return {
+    snapshot_ts: row.snapshot_ts,
+    total: row.total,
+    today: deltaFromBaseline(row, todayBaselines),
+    this_week: deltaFromBaseline(row, weekBaselines),
+    this_month: deltaFromBaseline(row, monthBaselines),
+    last_order_placed_at: row.last_order_placed_at,
+    last_trade_filled_at: row.last_trade_filled_at
+  }
 }
 
 function buildStrategyAccountRows(input: NewStrategyInput, strategyId: number) {
@@ -180,20 +261,32 @@ export function useStrategies() {
   return useAsyncData<StrategyWithAccounts[]>(
     'strategies',
     async () => {
-      const [{ data: strategyData, error: strategyError }, { data: accountData, error: accountError }] = await Promise.all([
+      const [
+        { data: strategyData, error: strategyError },
+        { data: accountData, error: accountError },
+        { data: latestData, error: latestError }
+      ] = await Promise.all([
         supabase
           .from('strategies')
           .select('id, strategy_name, server, url, tags, active'),
         supabase
           .from('strategy_accounts')
-          .select('id, strategy_id, connector, account_user, account_name, account_type, asset')
+          .select('id, strategy_id, connector, account_user, account_name, account_type, asset'),
+        supabase
+          .from('strategy_snapshots')
+          .select('snapshot_ts')
+          .order('snapshot_ts', { ascending: false })
+          .limit(1)
+          .maybeSingle()
       ])
 
       if (strategyError) throw strategyError
       if (accountError) throw accountError
+      if (latestError) throw latestError
 
       const strategies = StrategyRowsSchema.parse(strategyData ?? []).sort(compareStrategies)
       const accounts = StrategyAccountRowsSchema.parse(accountData ?? [])
+      const latestSnapshot = LatestStrategySnapshotRowSchema.nullable().parse(latestData)
       const accountsByStrategy = new Map<number, StrategyAccount[]>()
 
       for (const account of accounts) {
@@ -206,9 +299,82 @@ export function useStrategies() {
         rows.sort(compareStrategyAccounts)
       }
 
+      if (!strategies.length) return []
+
+      if (!latestSnapshot) {
+        return strategies.map(strategy => ({
+          ...strategy,
+          accounts: accountsByStrategy.get(strategy.id) ?? [],
+          snapshot: null
+        }))
+      }
+
+      const latestDate = new Date(latestSnapshot.snapshot_ts)
+      const todayStart = utcStartOfDay(latestDate)
+      const weekStart = new Date(todayStart)
+      weekStart.setUTCDate(weekStart.getUTCDate() - 6)
+      const monthStart = utcStartOfMonth(latestDate)
+      const strategyIds = strategies.map(strategy => strategy.id)
+      const snapshotColumns = 'snapshot_ts, strategy_id, total, last_order_placed_at, last_trade_filled_at'
+
+      const [
+        { data: latestSnapshotData, error: latestSnapshotError },
+        { data: todaySnapshotData, error: todaySnapshotError },
+        { data: weekSnapshotData, error: weekSnapshotError },
+        { data: monthSnapshotData, error: monthSnapshotError }
+      ] = await Promise.all([
+        supabase
+          .from('strategy_snapshots')
+          .select(snapshotColumns)
+          .eq('snapshot_ts', latestSnapshot.snapshot_ts)
+          .in('strategy_id', strategyIds),
+        supabase
+          .from('strategy_snapshots')
+          .select(snapshotColumns)
+          .gte('snapshot_ts', todayStart.toISOString())
+          .lte('snapshot_ts', latestSnapshot.snapshot_ts)
+          .order('snapshot_ts', { ascending: true })
+          .order('strategy_id', { ascending: true })
+          .in('strategy_id', strategyIds)
+          .limit(1000),
+        supabase
+          .from('strategy_snapshots')
+          .select(snapshotColumns)
+          .gte('snapshot_ts', weekStart.toISOString())
+          .lte('snapshot_ts', latestSnapshot.snapshot_ts)
+          .order('snapshot_ts', { ascending: true })
+          .order('strategy_id', { ascending: true })
+          .in('strategy_id', strategyIds)
+          .limit(1000),
+        supabase
+          .from('strategy_snapshots')
+          .select(snapshotColumns)
+          .gte('snapshot_ts', monthStart.toISOString())
+          .lte('snapshot_ts', latestSnapshot.snapshot_ts)
+          .order('snapshot_ts', { ascending: true })
+          .order('strategy_id', { ascending: true })
+          .in('strategy_id', strategyIds)
+          .limit(1000)
+      ])
+
+      if (latestSnapshotError) throw latestSnapshotError
+      if (todaySnapshotError) throw todaySnapshotError
+      if (weekSnapshotError) throw weekSnapshotError
+      if (monthSnapshotError) throw monthSnapshotError
+
+      const latestSnapshots = StrategySnapshotRowsSchema.parse(latestSnapshotData ?? [])
+      const todayBaselines = buildBaselineTotals(StrategySnapshotRowsSchema.parse(todaySnapshotData ?? []))
+      const weekBaselines = buildBaselineTotals(StrategySnapshotRowsSchema.parse(weekSnapshotData ?? []))
+      const monthBaselines = buildBaselineTotals(StrategySnapshotRowsSchema.parse(monthSnapshotData ?? []))
+      const snapshotsByStrategy = new Map(latestSnapshots.map(snapshot => [
+        snapshot.strategy_id,
+        buildSnapshot(snapshot, todayBaselines, weekBaselines, monthBaselines)
+      ]))
+
       return strategies.map(strategy => ({
         ...strategy,
-        accounts: accountsByStrategy.get(strategy.id) ?? []
+        accounts: accountsByStrategy.get(strategy.id) ?? [],
+        snapshot: snapshotsByStrategy.get(strategy.id) ?? null
       }))
     },
     { default: () => [] }

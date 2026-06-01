@@ -255,7 +255,7 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
     <template #actions>
       <UButton
         icon="i-lucide-plus"
-        label="New transfer"
+        label="Add transfer"
         :disabled="!hasAccounts"
         @click="openTransferModal"
       />
@@ -320,7 +320,7 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
 
   <UModal
     v-model:open="transferModalOpen"
-    title="New transfer"
+    title="Add transfer"
     :ui="{ content: 'max-w-2xl' }"
   >
     <template #body>
