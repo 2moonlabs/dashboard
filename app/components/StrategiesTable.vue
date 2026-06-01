@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { HeaderContext, SortingState } from '@tanstack/table-core'
 import type { TableColumn } from '@nuxt/ui'
 import type { AccountRef } from '~/types/accounts'
 import { accountRefKey, accountRefLabel } from '~/types/accounts'
@@ -14,6 +15,12 @@ const emit = defineEmits<{
 }>()
 
 const now = useState('strategy-table-now', () => Date.now())
+const sorting = ref<SortingState>([{ id: 'strategy_name', desc: false }])
+const sortingOptions = {
+  enableMultiSort: false,
+  enableSortingRemoval: false,
+  sortDescFirst: false
+}
 
 interface AccountGroup {
   account: AccountRef
@@ -31,6 +38,33 @@ const ratioFormatter = new Intl.NumberFormat('en-US', {
 
 function placeholder() {
   return h('span', { class: 'text-muted' }, '-')
+}
+
+function sortIcon(direction: false | 'asc' | 'desc') {
+  if (direction === 'asc') return 'i-lucide-arrow-up'
+  if (direction === 'desc') return 'i-lucide-arrow-down'
+  return 'i-lucide-arrow-up-down'
+}
+
+function sortableHeader(label: string, align: 'left' | 'right' = 'left') {
+  return ({ column }: HeaderContext<StrategyWithAccounts, unknown>) => h(
+    'button',
+    {
+      type: 'button',
+      class: [
+        'inline-flex w-full items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted transition hover:text-highlighted',
+        align === 'right' ? 'justify-end text-right' : 'justify-start text-left'
+      ].join(' '),
+      onClick: column.getToggleSortingHandler()
+    },
+    [
+      h('span', label),
+      h(resolveComponent('UIcon'), {
+        name: sortIcon(column.getIsSorted()),
+        class: 'size-3.5 shrink-0'
+      })
+    ]
+  )
 }
 
 function formatValue(value: number) {
@@ -137,6 +171,22 @@ function formatServer(row: StrategyWithAccounts) {
   return row.server || row.url || '-'
 }
 
+function sortText(value: string | null | undefined) {
+  const trimmed = value?.trim()
+  return trimmed || undefined
+}
+
+function sortNumber(value: number | null | undefined) {
+  return value ?? undefined
+}
+
+function sortTime(value: string | null | undefined) {
+  if (!value) return undefined
+
+  const timestamp = new Date(value).getTime()
+  return Number.isFinite(timestamp) ? timestamp : undefined
+}
+
 function strategyTags(row: StrategyWithAccounts) {
   return row.tags
 }
@@ -162,23 +212,48 @@ function accountAssets(assets: (string | null)[]) {
   return assets.filter((asset): asset is string => Boolean(asset))
 }
 
+function accountsSortValue(accounts: StrategyAccount[]) {
+  const labels = groupedAccounts(accounts).map((group) => {
+    const assets = accountAssets(group.assets)
+    return [accountRefLabel(group.account), ...assets].join(' ')
+  })
+
+  return sortText(labels.join(' '))
+}
+
 const columns: TableColumn<StrategyWithAccounts>[] = [
   {
     accessorKey: 'strategy_name',
-    header: 'Strategy',
+    header: sortableHeader('Strategy'),
+    sortingFn: 'alphanumeric',
+    sortUndefined: 'last',
     cell: ({ row }) => {
       const tags = [`id:${row.original.id}`, ...strategyTags(row.original)]
 
       return h('div', { class: 'space-y-1.5' }, [
-        h('div', { class: 'flex flex-wrap items-center gap-1.5' }, [
-          h('span', { class: 'font-medium text-highlighted' }, row.original.strategy_name),
-          row.original.active
-            ? null
-            : h(resolveComponent('UBadge'), {
-                color: 'neutral',
-                variant: 'soft',
-                size: 'sm'
-              }, () => 'inactive')
+        h('div', { class: 'flex min-w-0 items-center gap-1.5' }, [
+          h('div', { class: 'flex min-w-0 flex-wrap items-center gap-1.5' }, [
+            h('span', { class: 'font-medium text-highlighted' }, row.original.strategy_name),
+            row.original.active
+              ? null
+              : h(resolveComponent('UBadge'), {
+                  color: 'neutral',
+                  variant: 'soft',
+                  size: 'sm'
+                }, () => 'inactive')
+          ]),
+          h(resolveComponent('UButton'), {
+            'aria-label': 'Edit strategy',
+            'class': 'shrink-0 opacity-100 transition-opacity focus-visible:opacity-100 sm:opacity-0 sm:group-hover/strategy-row:opacity-100 sm:focus-visible:opacity-100',
+            'color': 'neutral',
+            'icon': 'i-lucide-square-pen',
+            'size': 'xs',
+            'variant': 'ghost',
+            'onClick': (event: MouseEvent) => {
+              event.stopPropagation()
+              emit('editTags', row.original)
+            }
+          })
         ]),
         h(
           'div',
@@ -194,7 +269,9 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
   },
   {
     id: 'total',
-    header: 'Total',
+    accessorFn: row => sortNumber(row.snapshot?.total),
+    header: sortableHeader('Total', 'right'),
+    sortUndefined: 'last',
     meta: {
       class: {
         th: 'text-right',
@@ -205,7 +282,9 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
   },
   {
     id: 'todayPnl',
-    header: 'Today',
+    accessorFn: row => sortNumber(row.snapshot?.today),
+    header: sortableHeader('Today', 'right'),
+    sortUndefined: 'last',
     meta: {
       class: {
         th: 'text-right',
@@ -216,7 +295,9 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
   },
   {
     id: 'weekPnl',
-    header: 'This week',
+    accessorFn: row => sortNumber(row.snapshot?.this_week),
+    header: sortableHeader('This week', 'right'),
+    sortUndefined: 'last',
     meta: {
       class: {
         th: 'text-right',
@@ -227,7 +308,9 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
   },
   {
     id: 'monthPnl',
-    header: 'This month',
+    accessorFn: row => sortNumber(row.snapshot?.this_month),
+    header: sortableHeader('This month', 'right'),
+    sortUndefined: 'last',
     meta: {
       class: {
         th: 'text-right',
@@ -238,7 +321,10 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
   },
   {
     id: 'accounts',
-    header: 'Accounts',
+    accessorFn: row => accountsSortValue(row.accounts),
+    header: sortableHeader('Accounts'),
+    sortingFn: 'alphanumeric',
+    sortUndefined: 'last',
     cell: ({ row }) => {
       const groups = groupedAccounts(row.original.accounts)
       if (!groups.length) return h('span', { class: 'text-muted' }, '-')
@@ -269,7 +355,9 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
   },
   {
     id: 'lastOrderPlacedAt',
-    header: 'Last Order',
+    accessorFn: row => sortTime(row.snapshot?.last_order_placed_at),
+    header: sortableHeader('Last Order'),
+    sortUndefined: 'last',
     cell: ({ row }) => {
       const seconds = ageSeconds(row.original.snapshot?.last_order_placed_at)
       if (seconds === null) return placeholder()
@@ -279,12 +367,17 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
   },
   {
     id: 'lastTradeFilledAt',
-    header: 'Last Trade',
+    accessorFn: row => sortTime(row.snapshot?.last_trade_filled_at),
+    header: sortableHeader('Last Trade'),
+    sortUndefined: 'last',
     cell: ({ row }) => ageCell(row.original.snapshot?.last_trade_filled_at)
   },
   {
     id: 'server',
-    header: 'Server',
+    accessorFn: row => sortText(row.server || row.url),
+    header: sortableHeader('Server'),
+    sortingFn: 'alphanumeric',
+    sortUndefined: 'last',
     cell: ({ row }) => {
       const label = formatServer(row.original)
       if (!row.original.url) return label
@@ -300,27 +393,6 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
         label
       )
     }
-  },
-  {
-    id: 'edit',
-    header: 'Edit',
-    meta: {
-      class: {
-        th: 'text-center',
-        td: 'text-center'
-      }
-    },
-    cell: ({ row }) => h(resolveComponent('UButton'), {
-      'aria-label': 'Edit',
-      'color': 'neutral',
-      'icon': 'i-lucide-square-pen',
-      'size': 'xs',
-      'variant': 'ghost',
-      'onClick': (event: MouseEvent) => {
-        event.stopPropagation()
-        emit('editTags', row.original)
-      }
-    })
   }
 ]
 </script>
@@ -328,10 +400,13 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
 <template>
   <UCard :ui="{ body: 'p-0 sm:p-0' }">
     <UTable
+      v-model:sorting="sorting"
       :data="data"
       :columns="columns"
       :loading="loading"
+      :sorting-options="sortingOptions"
       :ui="{
+        tr: 'group/strategy-row',
         th: 'text-xs whitespace-nowrap',
         td: 'align-middle text-xs'
       }"
