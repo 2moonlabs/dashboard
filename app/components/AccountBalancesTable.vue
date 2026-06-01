@@ -5,6 +5,7 @@ import { accountRefKey } from '~/types/accounts'
 
 const props = defineProps<{
   data: AccountBalance[]
+  portfolioTotal?: number
   loading?: boolean
 }>()
 
@@ -29,6 +30,8 @@ const total = computed(() =>
   props.data.reduce((sum, account) => sum + (account.total ?? 0), 0)
 )
 
+const portfolioTotal = computed(() => props.portfolioTotal ?? total.value)
+
 const expandedOptions = {
   getRowCanExpand: (row: { original: AccountBalance }) => row.original.assets.length > 0
 }
@@ -47,6 +50,12 @@ function formatCurrency(value: number) {
 
 function formatAccountTotal(value: number | null) {
   return value === null ? 'No data' : formatCurrency(value)
+}
+
+function formatPortfolioShare(value: number | null) {
+  if (value === null || portfolioTotal.value <= 0) return '-'
+
+  return `${totalFormatter.format((value / portfolioTotal.value) * 100)}%`
 }
 
 function formatBalance(value: number) {
@@ -101,6 +110,21 @@ const columns: TableColumn<AccountBalance>[] = [
         ]
       )
     }
+  },
+  {
+    id: 'portfolioShare',
+    header: 'Portfolio %',
+    meta: {
+      class: {
+        th: 'text-right',
+        td: 'text-right'
+      }
+    },
+    cell: ({ row }) => h(
+      'span',
+      { class: row.original.total === null ? 'text-xs text-muted' : 'tabular-nums text-[13px] text-highlighted' },
+      formatPortfolioShare(row.original.total)
+    )
   },
   {
     accessorKey: 'total',
@@ -207,6 +231,7 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
           <td class="p-4 text-xs font-medium uppercase tracking-wider text-muted whitespace-nowrap">
             Total
           </td>
+          <td class="p-4 whitespace-nowrap" />
           <td class="p-4 whitespace-nowrap" />
           <td class="p-4 text-right whitespace-nowrap">
             <span class="tabular-nums text-[13px] font-semibold text-highlighted">{{ formatCurrency(total) }}</span>

@@ -11,6 +11,9 @@ const { data: accountBalances, status, error } = await useLatestAccountBalances(
 const loading = computed(() => status.value === 'pending')
 const balances = computed(() => accountBalances.value?.balances ?? [])
 const snapshotTs = computed(() => accountBalances.value?.snapshotTs ?? null)
+const portfolioTotal = computed(() =>
+  balances.value.reduce((sum, account) => sum + (account.total ?? 0), 0)
+)
 
 const connectorOptions = computed(() => {
   const connectors = uniqueSortedConnectors(balances.value.map(account => account.connector))
@@ -121,6 +124,7 @@ const snapshotLabel = computed(() => {
         <ClientOnly>
           <AccountBalancesTable
             :data="filteredBalances"
+            :portfolio-total="portfolioTotal"
             :loading="loading"
           />
 
