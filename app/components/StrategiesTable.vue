@@ -74,11 +74,11 @@ function formatValue(value: number) {
 function valueCell(value: number | null | undefined) {
   if (value === null || value === undefined) return placeholder()
 
-  return h('span', { class: 'tabular-nums text-sm font-medium text-highlighted' }, formatValue(value))
+  return h('span', { class: 'tabular-nums text-[13px] font-medium text-highlighted' }, formatValue(value))
 }
 
-function signedValue(value: number, formatter: Intl.NumberFormat, zeroThreshold = 0) {
-  const sign = value > zeroThreshold ? '+' : value < -zeroThreshold ? '-' : ''
+function changeValue(value: number, formatter: Intl.NumberFormat, zeroThreshold = 0) {
+  const sign = value < -zeroThreshold ? '-' : ''
   const magnitude = Math.abs(value) < zeroThreshold ? 0 : Math.abs(value)
 
   return `${sign}${formatter.format(magnitude)}`
@@ -88,12 +88,6 @@ function valueClass(value: number) {
   if (value < 0) return 'text-error'
   if (value > 0) return 'text-success'
   return 'text-muted'
-}
-
-function badgeColor(value: number) {
-  if (value < 0) return 'error'
-  if (value > 0) return 'success'
-  return 'neutral'
 }
 
 function relativePnl(value: number, total: number | null | undefined, multiplier: number) {
@@ -111,14 +105,14 @@ function pnlCell(value: number | null | undefined, total: number | null | undefi
   const ratio = relativePnl(value, total, multiplier)
 
   return h('div', { class: 'flex flex-col items-end gap-1' }, [
-    h('span', { class: `${valueClass(value)} tabular-nums text-[13px] font-medium` }, signedValue(value, valueFormatter, 0.005)),
+    h('span', { class: `${valueClass(value)} tabular-nums text-[13px] font-medium` }, changeValue(value, valueFormatter, 0.005)),
     ratio === null
       ? placeholder()
       : h(resolveComponent('UBadge'), {
-          color: badgeColor(value),
+          color: 'neutral',
           variant: 'soft',
           size: 'sm'
-        }, () => `${signedValue(ratio, ratioFormatter)}${unit}`)
+        }, () => `${changeValue(ratio, ratioFormatter)}${unit}`)
   ])
 }
 
@@ -160,13 +154,6 @@ function orderAgeClass(seconds: number) {
   return 'text-error'
 }
 
-function ageCell(value: string | null | undefined, className = 'text-highlighted') {
-  const seconds = ageSeconds(value)
-  if (seconds === null) return placeholder()
-
-  return h('span', { class: `${className} tabular-nums` }, formatAge(seconds))
-}
-
 function formatServer(row: StrategyWithAccounts) {
   return row.server || row.url || '-'
 }
@@ -185,6 +172,10 @@ function sortTime(value: string | null | undefined) {
 
   const timestamp = new Date(value).getTime()
   return Number.isFinite(timestamp) ? timestamp : undefined
+}
+
+function activitySortTime(row: StrategyWithAccounts) {
+  return sortTime(row.snapshot?.last_order_placed_at) ?? sortTime(row.snapshot?.last_trade_filled_at)
 }
 
 function strategyTags(row: StrategyWithAccounts) {
@@ -221,6 +212,30 @@ function accountsSortValue(accounts: StrategyAccount[]) {
   return sortText(labels.join(' '))
 }
 
+function activityLine(label: string, value: string | null | undefined, className: string) {
+  const seconds = ageSeconds(value)
+
+  return h('div', { class: 'grid grid-cols-[2.25rem_auto] items-baseline gap-1.5' }, [
+    h('span', { class: 'text-muted' }, label),
+    seconds === null
+      ? placeholder()
+      : h('span', { class: `${className} tabular-nums` }, formatAge(seconds))
+  ])
+}
+
+function activityCell(row: StrategyWithAccounts) {
+  const orderSeconds = ageSeconds(row.snapshot?.last_order_placed_at)
+
+  return h('div', { class: 'space-y-1' }, [
+    activityLine(
+      'Order',
+      row.snapshot?.last_order_placed_at,
+      orderSeconds === null ? 'text-highlighted' : orderAgeClass(orderSeconds)
+    ),
+    activityLine('Trade', row.snapshot?.last_trade_filled_at, 'text-highlighted')
+  ])
+}
+
 const columns: TableColumn<StrategyWithAccounts>[] = [
   {
     accessorKey: 'strategy_name',
@@ -231,7 +246,7 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
       const tags = [`id:${row.original.id}`, ...strategyTags(row.original)]
 
       return h('div', { class: 'space-y-1.5' }, [
-        h('div', { class: 'flex min-w-0 items-center gap-1.5' }, [
+        h('div', { class: 'relative min-w-0' }, [
           h('div', { class: 'flex min-w-0 flex-wrap items-center gap-1.5' }, [
             h('span', { class: 'font-medium text-highlighted' }, row.original.strategy_name),
             row.original.active
@@ -244,7 +259,7 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
           ]),
           h(resolveComponent('UButton'), {
             'aria-label': 'Edit strategy',
-            'class': 'shrink-0 opacity-100 transition-opacity focus-visible:opacity-100 sm:opacity-0 sm:group-hover/strategy-row:opacity-100 sm:focus-visible:opacity-100',
+            'class': 'absolute left-full top-1/2 ml-1 -translate-y-1/2 opacity-100 transition-opacity focus-visible:opacity-100 sm:opacity-0 sm:group-hover/strategy-row:opacity-100 sm:focus-visible:opacity-100',
             'color': 'neutral',
             'icon': 'i-lucide-square-pen',
             'size': 'xs',
@@ -354,23 +369,11 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
     }
   },
   {
-    id: 'lastOrderPlacedAt',
-    accessorFn: row => sortTime(row.snapshot?.last_order_placed_at),
-    header: sortableHeader('Last Order'),
+    id: 'activity',
+    accessorFn: row => activitySortTime(row),
+    header: sortableHeader('Activity'),
     sortUndefined: 'last',
-    cell: ({ row }) => {
-      const seconds = ageSeconds(row.original.snapshot?.last_order_placed_at)
-      if (seconds === null) return placeholder()
-
-      return h('span', { class: `${orderAgeClass(seconds)} tabular-nums` }, formatAge(seconds))
-    }
-  },
-  {
-    id: 'lastTradeFilledAt',
-    accessorFn: row => sortTime(row.snapshot?.last_trade_filled_at),
-    header: sortableHeader('Last Trade'),
-    sortUndefined: 'last',
-    cell: ({ row }) => ageCell(row.original.snapshot?.last_trade_filled_at)
+    cell: ({ row }) => activityCell(row.original)
   },
   {
     id: 'server',

@@ -113,7 +113,7 @@ const columns: TableColumn<AccountBalance>[] = [
     },
     cell: ({ row }) => h(
       'span',
-      { class: row.original.total === null ? 'text-xs text-muted' : 'tabular-nums text-highlighted' },
+      { class: row.original.total === null ? 'text-xs text-muted' : 'tabular-nums text-[13px] text-highlighted' },
       formatAccountTotal(row.original.total)
     )
   }
@@ -209,7 +209,7 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
           </td>
           <td class="p-4 whitespace-nowrap" />
           <td class="p-4 text-right whitespace-nowrap">
-            <span class="tabular-nums text-sm font-semibold text-highlighted">{{ formatCurrency(total) }}</span>
+            <span class="tabular-nums text-[13px] font-semibold text-highlighted">{{ formatCurrency(total) }}</span>
           </td>
         </tr>
       </template>
