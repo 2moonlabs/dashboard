@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { NewStrategyInput, Strategy, StrategyAccount, StrategySnapshot, StrategyWithAccounts, UpdateStrategyInput } from '~/types/strategies'
 import { normalizeStrategyAssets, normalizeStrategyTags, strategyAccountAssetKey } from '~/types/strategies'
-import { accountRefKey, compareAccounts } from '~/types/accounts'
+import { TRANSFER_TYPES, accountRefKey, compareAccounts, type AccountRef } from '~/types/accounts'
 
 type StrategyRow = {
   id: number
@@ -34,6 +34,37 @@ type StrategySnapshotRow = {
   last_trade_filled_at: string | null
 }
 
+type AccountTransferRow = {
+  id: number
+  ts: string
+  transfer_type: 'deposit' | 'withdraw' | 'internal_transfer'
+  from_connector: string | null
+  from_account_user: string | null
+  from_account_name: string | null
+  from_account_type: string | null
+  to_connector: string | null
+  to_account_user: string | null
+  to_account_name: string | null
+  to_account_type: string | null
+  asset: string
+  amount: number
+  note: string
+}
+
+type NewAccountTransferRow = Omit<AccountTransferRow, 'id'>
+
+type AccountSnapshotAssetRow = {
+  snapshot_ts: string
+  connector: string
+  account_user: string
+  account_name: string
+  account_type: string
+  asset: string
+  balance: number
+  quote: number
+  value: number
+}
+
 interface StrategiesDatabase {
   public: {
     Tables: {
@@ -53,6 +84,18 @@ interface StrategiesDatabase {
         Row: StrategySnapshotRow
         Insert: StrategySnapshotRow
         Update: Partial<StrategySnapshotRow>
+        Relationships: []
+      }
+      account_transfers: {
+        Row: AccountTransferRow
+        Insert: NewAccountTransferRow
+        Update: Partial<NewAccountTransferRow>
+        Relationships: []
+      }
+      account_snapshot_assets: {
+        Row: AccountSnapshotAssetRow
+        Insert: AccountSnapshotAssetRow
+        Update: Partial<AccountSnapshotAssetRow>
         Relationships: []
       }
     }
@@ -117,6 +160,36 @@ const StrategySnapshotRowSchema = z.object({
 
 const StrategySnapshotRowsSchema = z.array(StrategySnapshotRowSchema)
 
+const AccountTransferRowSchema = z.object({
+  id: StrictInteger,
+  ts: z.string().min(1),
+  transfer_type: z.enum(TRANSFER_TYPES),
+  from_connector: z.string().nullable(),
+  from_account_user: z.string().nullable(),
+  from_account_name: z.string().nullable(),
+  from_account_type: z.string().nullable(),
+  to_connector: z.string().nullable(),
+  to_account_user: z.string().nullable(),
+  to_account_name: z.string().nullable(),
+  to_account_type: z.string().nullable(),
+  asset: z.string().min(1),
+  amount: StrictNumber
+})
+
+const AccountTransferRowsSchema = z.array(AccountTransferRowSchema)
+
+const AccountSnapshotAssetQuoteRowSchema = z.object({
+  snapshot_ts: z.string().min(1),
+  connector: z.string().min(1),
+  account_user: z.string().min(1),
+  account_name: z.string().min(1),
+  account_type: z.string().min(1),
+  asset: z.string().min(1),
+  quote: StrictNumber
+})
+
+const AccountSnapshotAssetQuoteRowsSchema = z.array(AccountSnapshotAssetQuoteRowSchema)
+
 const NewStrategyAccountSchema = z.object({
   connector: z.string().min(1),
   account_user: z.string().min(1),
@@ -151,6 +224,27 @@ const StrategyIdSchema = z.object({
 })
 
 type ParsedStrategySnapshotRow = z.output<typeof StrategySnapshotRowSchema>
+type ParsedAccountTransferRow = z.output<typeof AccountTransferRowSchema>
+type ParsedAccountSnapshotAssetQuoteRow = z.output<typeof AccountSnapshotAssetQuoteRowSchema>
+type PeriodKey = 'today' | 'this_week' | 'this_month'
+type StrategyAccountMembership = {
+  allAssets: boolean
+  assets: Set<string>
+}
+type QuotePoint = {
+  ts: number
+  quote: number
+}
+type QuoteLookupGroup = {
+  account: AccountRef
+  asset: string
+  startTs: string
+  endTs: string
+}
+
+const STABLE_ASSETS = new Set(['USD', 'USDT', 'USDC', 'DAI'])
+const QUOTE_QUERY_PAGE_SIZE = 1000
+const QUOTE_LOOKUP_GROUP_CONCURRENCY = 4
 
 function compareStrategies(a: Strategy, b: Strategy) {
   return Number(b.active) - Number(a.active)
@@ -177,35 +271,309 @@ function utcStartOfMonth(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1))
 }
 
-function buildBaselineTotals(rows: ParsedStrategySnapshotRow[]) {
-  const baselines = new Map<number, number>()
+function normalizeAsset(asset: string) {
+  return asset.trim().toUpperCase()
+}
+
+function buildBaselineRows(rows: ParsedStrategySnapshotRow[]) {
+  const baselines = new Map<number, ParsedStrategySnapshotRow>()
 
   for (const row of rows) {
     if (baselines.has(row.strategy_id)) continue
 
-    baselines.set(row.strategy_id, row.total)
+    baselines.set(row.strategy_id, row)
   }
 
   return baselines
 }
 
-function deltaFromBaseline(row: ParsedStrategySnapshotRow, baselines: Map<number, number>) {
+function buildStrategyMembership(accounts: StrategyAccount[]) {
+  const membership = new Map<number, Map<string, StrategyAccountMembership>>()
+
+  for (const account of accounts) {
+    const accountsByKey = membership.get(account.strategy_id) ?? new Map<string, StrategyAccountMembership>()
+    const accountKey = accountRefKey(account)
+    const accountMembership = accountsByKey.get(accountKey) ?? {
+      allAssets: false,
+      assets: new Set<string>()
+    }
+
+    if (account.asset === null) {
+      accountMembership.allAssets = true
+    } else {
+      accountMembership.assets.add(normalizeAsset(account.asset))
+    }
+
+    accountsByKey.set(accountKey, accountMembership)
+    membership.set(account.strategy_id, accountsByKey)
+  }
+
+  return membership
+}
+
+function transferSideAccount(transfer: ParsedAccountTransferRow, side: 'from' | 'to'): AccountRef | null {
+  const connector = transfer[`${side}_connector`]
+  const accountUser = transfer[`${side}_account_user`]
+  const accountName = transfer[`${side}_account_name`]
+  const accountType = transfer[`${side}_account_type`]
+
+  if (!connector || !accountUser || !accountName || !accountType) return null
+
+  return {
+    connector,
+    account_user: accountUser,
+    account_name: accountName,
+    account_type: accountType
+  }
+}
+
+function strategyMatchesTransferSide(
+  membership: Map<number, Map<string, StrategyAccountMembership>>,
+  strategyId: number,
+  account: AccountRef | null,
+  asset: string
+) {
+  if (!account) return false
+
+  const accountMembership = membership.get(strategyId)?.get(accountRefKey(account))
+  if (!accountMembership) return false
+
+  return accountMembership.allAssets || accountMembership.assets.has(asset)
+}
+
+function quoteKey(account: AccountRef, asset: string) {
+  return strategyAccountAssetKey(account, asset)
+}
+
+async function mapInConcurrentChunks<T, R>(
+  items: T[],
+  chunkSize: number,
+  task: (item: T) => Promise<R>
+) {
+  const results: R[] = []
+
+  for (let index = 0; index < items.length; index += chunkSize) {
+    const chunk = items.slice(index, index + chunkSize)
+    results.push(...await Promise.all(chunk.map(task)))
+  }
+
+  return results
+}
+
+function buildQuoteLookupGroups(
+  transfers: ParsedAccountTransferRow[],
+  strategyIds: number[],
+  membership: Map<number, Map<string, StrategyAccountMembership>>
+) {
+  const groups = new Map<string, {
+    account: AccountRef
+    asset: string
+    minTs: number
+    maxTs: number
+  }>()
+
+  for (const transfer of transfers) {
+    const asset = normalizeAsset(transfer.asset)
+    if (STABLE_ASSETS.has(asset)) continue
+
+    const transferTs = new Date(transfer.ts).getTime()
+    if (!Number.isFinite(transferTs)) continue
+
+    for (const side of ['from', 'to'] as const) {
+      const account = transferSideAccount(transfer, side)
+      if (!account) continue
+      if (!strategyIds.some(strategyId => strategyMatchesTransferSide(membership, strategyId, account, asset))) continue
+
+      const key = quoteKey(account, asset)
+      const group = groups.get(key)
+
+      if (group) {
+        group.minTs = Math.min(group.minTs, transferTs)
+        group.maxTs = Math.max(group.maxTs, transferTs)
+        continue
+      }
+
+      groups.set(key, {
+        account,
+        asset,
+        minTs: transferTs,
+        maxTs: transferTs
+      })
+    }
+  }
+
+  return [...groups.values()].map<QuoteLookupGroup>(group => ({
+    account: group.account,
+    asset: group.asset,
+    startTs: new Date(group.minTs).toISOString(),
+    endTs: new Date(group.maxTs).toISOString()
+  }))
+}
+
+function buildQuotePoints(rows: ParsedAccountSnapshotAssetQuoteRow[]) {
+  const quotePoints = new Map<string, QuotePoint[]>()
+
+  for (const row of rows) {
+    const key = quoteKey(row, normalizeAsset(row.asset))
+    const points = quotePoints.get(key) ?? []
+    const ts = new Date(row.snapshot_ts).getTime()
+    if (Number.isFinite(ts)) {
+      points.push({ ts, quote: row.quote })
+      quotePoints.set(key, points)
+    }
+  }
+
+  for (const points of quotePoints.values()) {
+    points.sort((a, b) => a.ts - b.ts)
+  }
+
+  return quotePoints
+}
+
+function nearestQuote(account: AccountRef, asset: string, ts: number, quotePoints: Map<string, QuotePoint[]>) {
+  const points = quotePoints.get(quoteKey(account, asset))
+  if (!points?.length) return null
+
+  let nearest: QuotePoint | null = null
+  let nearestDistance = Number.POSITIVE_INFINITY
+
+  for (const point of points) {
+    const distance = Math.abs(point.ts - ts)
+    if (distance >= nearestDistance) continue
+
+    nearest = point
+    nearestDistance = distance
+  }
+
+  return nearest?.quote ?? null
+}
+
+function transferSideValue(
+  transfer: ParsedAccountTransferRow,
+  side: 'from' | 'to',
+  asset: string,
+  ts: number,
+  quotePoints: Map<string, QuotePoint[]>
+) {
+  if (STABLE_ASSETS.has(asset)) return transfer.amount
+
+  const account = transferSideAccount(transfer, side)
+  if (!account) return null
+
+  const quote = nearestQuote(account, asset, ts, quotePoints)
+  return quote === null ? null : transfer.amount * quote
+}
+
+function transferFlowForStrategy(
+  transfer: ParsedAccountTransferRow,
+  strategyId: number,
+  membership: Map<number, Map<string, StrategyAccountMembership>>,
+  quotePoints: Map<string, QuotePoint[]>
+) {
+  const asset = normalizeAsset(transfer.asset)
+  const ts = new Date(transfer.ts).getTime()
+  if (!Number.isFinite(ts)) return 0
+
+  const fromAccount = transferSideAccount(transfer, 'from')
+  const toAccount = transferSideAccount(transfer, 'to')
+  const fromMatches = strategyMatchesTransferSide(membership, strategyId, fromAccount, asset)
+  const toMatches = strategyMatchesTransferSide(membership, strategyId, toAccount, asset)
+
+  if (transfer.transfer_type === 'deposit') {
+    return toMatches ? transferSideValue(transfer, 'to', asset, ts, quotePoints) : 0
+  }
+
+  if (transfer.transfer_type === 'withdraw') {
+    const value = fromMatches ? transferSideValue(transfer, 'from', asset, ts, quotePoints) : 0
+    return value === null ? null : -value
+  }
+
+  if (fromMatches === toMatches) return 0
+
+  if (toMatches) {
+    return transferSideValue(transfer, 'to', asset, ts, quotePoints)
+  }
+
+  const value = transferSideValue(transfer, 'from', asset, ts, quotePoints)
+  return value === null ? null : -value
+}
+
+function addTransferFlow(flows: Map<number, number | null>, strategyId: number, value: number | null) {
+  if (flows.get(strategyId) === null) return
+
+  if (value === null) {
+    flows.set(strategyId, null)
+    return
+  }
+
+  flows.set(strategyId, (flows.get(strategyId) ?? 0) + value)
+}
+
+function buildTransferFlows(
+  transfers: ParsedAccountTransferRow[],
+  strategyIds: number[],
+  membership: Map<number, Map<string, StrategyAccountMembership>>,
+  quotePoints: Map<string, QuotePoint[]>,
+  baselinesByPeriod: Record<PeriodKey, Map<number, ParsedStrategySnapshotRow>>,
+  latestSnapshotTs: string
+) {
+  const latestTs = new Date(latestSnapshotTs).getTime()
+  const flows: Record<PeriodKey, Map<number, number | null>> = {
+    today: new Map(),
+    this_week: new Map(),
+    this_month: new Map()
+  }
+
+  if (!Number.isFinite(latestTs)) return flows
+
+  for (const transfer of transfers) {
+    const transferTs = new Date(transfer.ts).getTime()
+    if (!Number.isFinite(transferTs) || transferTs > latestTs) continue
+
+    for (const strategyId of strategyIds) {
+      const value = transferFlowForStrategy(transfer, strategyId, membership, quotePoints)
+      if (value === 0) continue
+
+      for (const period of Object.keys(flows) as PeriodKey[]) {
+        const baseline = baselinesByPeriod[period].get(strategyId)
+        if (!baseline) continue
+
+        const baselineTs = new Date(baseline.snapshot_ts).getTime()
+        if (!Number.isFinite(baselineTs) || transferTs <= baselineTs) continue
+
+        addTransferFlow(flows[period], strategyId, value)
+      }
+    }
+  }
+
+  return flows
+}
+
+function deltaFromBaseline(
+  row: ParsedStrategySnapshotRow,
+  baselines: Map<number, ParsedStrategySnapshotRow>,
+  transferFlows: Map<number, number | null>
+) {
   const baseline = baselines.get(row.strategy_id)
-  return baseline === undefined ? null : row.total - baseline
+  if (!baseline) return null
+
+  const transferFlow = transferFlows.get(row.strategy_id) ?? 0
+  if (transferFlow === null) return null
+
+  return row.total - baseline.total - transferFlow
 }
 
 function buildSnapshot(
   row: ParsedStrategySnapshotRow,
-  todayBaselines: Map<number, number>,
-  weekBaselines: Map<number, number>,
-  monthBaselines: Map<number, number>
+  baselinesByPeriod: Record<PeriodKey, Map<number, ParsedStrategySnapshotRow>>,
+  transferFlows: Record<PeriodKey, Map<number, number | null>>
 ): StrategySnapshot {
   return {
     snapshot_ts: row.snapshot_ts,
     total: row.total,
-    today: deltaFromBaseline(row, todayBaselines),
-    this_week: deltaFromBaseline(row, weekBaselines),
-    this_month: deltaFromBaseline(row, monthBaselines),
+    today: deltaFromBaseline(row, baselinesByPeriod.today, transferFlows.today),
+    this_week: deltaFromBaseline(row, baselinesByPeriod.this_week, transferFlows.this_week),
+    this_month: deltaFromBaseline(row, baselinesByPeriod.this_month, transferFlows.this_month),
     last_order_placed_at: row.last_order_placed_at,
     last_trade_filled_at: row.last_trade_filled_at
   }
@@ -365,12 +733,110 @@ export function useStrategies() {
       if (monthSnapshotError) throw monthSnapshotError
 
       const latestSnapshots = StrategySnapshotRowsSchema.parse(latestSnapshotData ?? [])
-      const todayBaselines = buildBaselineTotals(StrategySnapshotRowsSchema.parse(todaySnapshotData ?? []))
-      const weekBaselines = buildBaselineTotals(StrategySnapshotRowsSchema.parse(weekSnapshotData ?? []))
-      const monthBaselines = buildBaselineTotals(StrategySnapshotRowsSchema.parse(monthSnapshotData ?? []))
+      if (!latestSnapshots.length) {
+        return strategies.map(strategy => ({
+          ...strategy,
+          accounts: accountsByStrategy.get(strategy.id) ?? [],
+          snapshot: null
+        }))
+      }
+
+      const baselinesByPeriod = {
+        today: buildBaselineRows(StrategySnapshotRowsSchema.parse(todaySnapshotData ?? [])),
+        this_week: buildBaselineRows(StrategySnapshotRowsSchema.parse(weekSnapshotData ?? [])),
+        this_month: buildBaselineRows(StrategySnapshotRowsSchema.parse(monthSnapshotData ?? []))
+      }
+
+      // Assumes the strategy transfer window stays below the UI fetch cap.
+      // Paginate or move this calculation server-side if transfer volume grows.
+      const { data: transferData, error: transferError } = await supabase
+        .from('account_transfers')
+        .select('id, ts, transfer_type, from_connector, from_account_user, from_account_name, from_account_type, to_connector, to_account_user, to_account_name, to_account_type, asset, amount')
+        .gt('ts', monthStart.toISOString())
+        .lte('ts', latestSnapshot.snapshot_ts)
+        .order('ts', { ascending: true })
+        .limit(5000)
+
+      if (transferError) throw transferError
+
+      const transfers = AccountTransferRowsSchema.parse(transferData ?? [])
+      const strategyMembership = buildStrategyMembership(accounts)
+      const quoteLookupGroups = buildQuoteLookupGroups(transfers, strategyIds, strategyMembership)
+      const quoteRows: ParsedAccountSnapshotAssetQuoteRow[] = []
+
+      if (quoteLookupGroups.length) {
+        const quoteColumns = 'snapshot_ts, connector, account_user, account_name, account_type, asset, quote'
+        const quoteRowsByGroup = await mapInConcurrentChunks(
+          quoteLookupGroups,
+          QUOTE_LOOKUP_GROUP_CONCURRENCY,
+          async (group) => {
+            const rows: ParsedAccountSnapshotAssetQuoteRow[] = []
+            const baseQuery = () => supabase
+              .from('account_snapshot_assets')
+              .select(quoteColumns)
+              .eq('connector', group.account.connector)
+              .eq('account_user', group.account.account_user)
+              .eq('account_name', group.account.account_name)
+              .eq('account_type', group.account.account_type)
+              .eq('asset', group.asset)
+
+            const [
+              { data: beforeData, error: beforeError },
+              { data: afterData, error: afterError }
+            ] = await Promise.all([
+              baseQuery()
+                .lte('snapshot_ts', group.startTs)
+                .order('snapshot_ts', { ascending: false })
+                .limit(1)
+                .maybeSingle(),
+              baseQuery()
+                .gte('snapshot_ts', group.endTs)
+                .order('snapshot_ts', { ascending: true })
+                .limit(1)
+                .maybeSingle()
+            ])
+
+            if (beforeError) throw beforeError
+            if (afterError) throw afterError
+
+            for (const data of [beforeData, afterData]) {
+              const row = AccountSnapshotAssetQuoteRowSchema.nullable().parse(data)
+              if (row) rows.push(row)
+            }
+
+            for (let from = 0; ; from += QUOTE_QUERY_PAGE_SIZE) {
+              const { data, error } = await baseQuery()
+                .gte('snapshot_ts', group.startTs)
+                .lte('snapshot_ts', group.endTs)
+                .order('snapshot_ts', { ascending: true })
+                .range(from, from + QUOTE_QUERY_PAGE_SIZE - 1)
+
+              if (error) throw error
+
+              const pageRows = AccountSnapshotAssetQuoteRowsSchema.parse(data ?? [])
+              rows.push(...pageRows)
+
+              if (pageRows.length < QUOTE_QUERY_PAGE_SIZE) break
+            }
+
+            return rows
+          }
+        )
+
+        quoteRows.push(...quoteRowsByGroup.flat())
+      }
+
+      const transferFlows = buildTransferFlows(
+        transfers,
+        strategyIds,
+        strategyMembership,
+        buildQuotePoints(quoteRows),
+        baselinesByPeriod,
+        latestSnapshot.snapshot_ts
+      )
       const snapshotsByStrategy = new Map(latestSnapshots.map(snapshot => [
         snapshot.strategy_id,
-        buildSnapshot(snapshot, todayBaselines, weekBaselines, monthBaselines)
+        buildSnapshot(snapshot, baselinesByPeriod, transferFlows)
       ]))
 
       return strategies.map(strategy => ({
