@@ -144,6 +144,8 @@ const formSchema = z.object({
 })
 
 const editFormSchema = z.object({
+  server: z.string(),
+  url: z.string(),
   active: z.boolean(),
   tags: z.array(z.string())
 })
@@ -160,6 +162,8 @@ const form = reactive<StrategyForm>({
 })
 
 const editForm = reactive<EditForm>({
+  server: '',
+  url: '',
   active: true,
   tags: []
 })
@@ -211,6 +215,8 @@ function removeAccountBinding(index: number) {
 
 function openEditModal(strategy: StrategyWithAccounts) {
   selectedStrategy.value = strategy
+  editForm.server = strategy.server ?? ''
+  editForm.url = strategy.url ?? ''
   editForm.active = strategy.active
   editForm.tags = [...strategy.tags]
   editModalOpen.value = true
@@ -268,6 +274,8 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
   try {
     await updateStrategy({
       id: selectedStrategy.value.id,
+      server: nullIfEmpty(event.data.server),
+      url: nullIfEmpty(event.data.url),
       active: event.data.active,
       tags: normalizeStrategyTags(event.data.tags)
     })
@@ -343,7 +351,7 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
         <StrategiesTable
           :data="filteredStrategies"
           :loading="loadingStrategies"
-          @edit-tags="openEditModal"
+          @edit-strategy="openEditModal"
         />
       </div>
     </template>
@@ -496,7 +504,7 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
 
   <UModal
     v-model:open="editModalOpen"
-    title="Edit strategy"
+    :title="selectedStrategy ? `Edit ${selectedStrategy.strategy_name}` : 'Edit strategy'"
     :ui="{ content: 'max-w-xl' }"
   >
     <template #body>
@@ -506,10 +514,6 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
         class="space-y-4"
         @submit="onEditSubmit"
       >
-        <p class="text-sm font-medium text-highlighted">
-          {{ selectedStrategy?.strategy_name }}
-        </p>
-
         <UFormField
           label="Status"
           name="active"
@@ -535,6 +539,28 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
             class="w-full"
           />
         </UFormField>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <UFormField
+            label="Server"
+            name="server"
+          >
+            <UInput
+              v-model="editForm.server"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField
+            label="URL"
+            name="url"
+          >
+            <UInput
+              v-model="editForm.url"
+              class="w-full"
+            />
+          </UFormField>
+        </div>
 
         <div class="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
           <UButton

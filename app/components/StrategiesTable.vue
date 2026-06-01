@@ -11,7 +11,7 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  editTags: [strategy: StrategyWithAccounts]
+  editStrategy: [strategy: StrategyWithAccounts]
 }>()
 
 const now = useState('strategy-table-now', () => Date.now())
@@ -251,7 +251,7 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
             'variant': 'ghost',
             'onClick': (event: MouseEvent) => {
               event.stopPropagation()
-              emit('editTags', row.original)
+              emit('editStrategy', row.original)
             }
           })
         ]),
