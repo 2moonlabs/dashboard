@@ -105,14 +105,10 @@ function pnlCell(value: number | null | undefined, total: number | null | undefi
   const ratio = relativePnl(value, total, multiplier)
 
   return h('div', { class: 'flex flex-col items-end gap-1' }, [
-    h('span', { class: `${valueClass(value)} tabular-nums text-[13px] font-medium` }, changeValue(value, valueFormatter, 0.005)),
     ratio === null
       ? placeholder()
-      : h(resolveComponent('UBadge'), {
-          color: 'neutral',
-          variant: 'soft',
-          size: 'sm'
-        }, () => `${changeValue(ratio, ratioFormatter)}${unit}`)
+      : h('span', { class: `${valueClass(value)} tabular-nums text-[13px] font-medium` }, `${changeValue(ratio, ratioFormatter)}${unit}`),
+    h('span', { class: 'tabular-nums text-[11px] text-muted' }, changeValue(value, valueFormatter, 0.005))
   ])
 }
 
