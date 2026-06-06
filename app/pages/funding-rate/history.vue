@@ -4,7 +4,12 @@ import { EXCHANGE_OPTIONS, type ExchangeId } from '~/types/exchanges'
 
 const selectedExchange = ref<ExchangeId>('coinbase')
 
-const { data: symbols, error: symbolsError } = await useSymbols(selectedExchange)
+const {
+  data: symbols,
+  status: symbolsStatus,
+  error: symbolsError,
+  refresh: refreshSymbols
+} = await useSymbols(selectedExchange)
 
 const selectedSymbol = ref<string | undefined>(symbols.value?.[0])
 watch(symbols, (list) => {
@@ -24,18 +29,37 @@ const rangeOptions: { label: string, value: RangePreset }[] = [
 ]
 const range = ref<RangePreset>('week')
 
-const { data: history, status, error: historyError } = await useFundingHistory(
+const {
+  data: history,
+  status,
+  error: historyError,
+  refresh: refreshHistory
+} = await useFundingHistory(
   selectedExchange,
   selectedSymbol,
   range
 )
 const loading = computed(() => status.value === 'pending')
+const refreshing = computed(() => symbolsStatus.value === 'pending' || status.value === 'pending')
 
 const fetchError = computed(() => symbolsError.value || historyError.value)
+
+async function refreshPageData() {
+  await refreshSymbols()
+  await nextTick()
+  await refreshHistory()
+}
 </script>
 
 <template>
   <AppPage title="Funding Rate History">
+    <template #actions>
+      <AppRefreshButton
+        :loading="refreshing"
+        @refresh="refreshPageData"
+      />
+    </template>
+
     <template #toolbar>
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">

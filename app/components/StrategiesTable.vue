@@ -5,7 +5,7 @@ import type { AccountRef } from '~/types/accounts'
 import { accountRefKey, accountRefLabel } from '~/types/accounts'
 import type { StrategyAccount, StrategyWithAccounts } from '~/types/strategies'
 
-defineProps<{
+const props = defineProps<{
   data: StrategyWithAccounts[]
   loading?: boolean
 }>()
@@ -21,6 +21,10 @@ const sortingOptions = {
   enableSortingRemoval: false,
   sortDescFirst: false
 }
+
+watch(() => [props.data, props.loading], () => {
+  now.value = Date.now()
+})
 
 interface AccountGroup {
   account: AccountRef

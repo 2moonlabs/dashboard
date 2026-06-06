@@ -6,7 +6,12 @@ const selectedUser = ref('all')
 const selectedType = ref('all')
 const showSmallBalances = ref(false)
 
-const { data: accountBalances, status, error } = await useLatestAccountBalances()
+const {
+  data: accountBalances,
+  status,
+  error,
+  refresh: refreshBalances
+} = await useLatestAccountBalances()
 
 const loading = computed(() => status.value === 'pending')
 const balances = computed(() => accountBalances.value?.balances ?? [])
@@ -76,6 +81,13 @@ const snapshotLabel = computed(() => {
 
 <template>
   <AppPage title="Account Balances">
+    <template #actions>
+      <AppRefreshButton
+        :loading="loading"
+        @refresh="refreshBalances"
+      />
+    </template>
+
     <template #toolbar>
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">

@@ -23,7 +23,12 @@ const includeInactiveStrategies = ref(false)
 const selectedTag = ref('all')
 const selectedStrategy = ref<StrategyWithAccounts | null>(null)
 
-const { data: accounts, error: accountsError } = await useAccounts()
+const {
+  data: accounts,
+  status: accountsStatus,
+  error: accountsError,
+  refresh: refreshAccounts
+} = await useAccounts()
 const {
   data: strategies,
   status: strategiesStatus,
@@ -35,6 +40,7 @@ const insertStrategy = useInsertStrategy()
 const updateStrategy = useUpdateStrategy()
 
 const loadingStrategies = computed(() => strategiesStatus.value === 'pending')
+const refreshing = computed(() => accountsStatus.value === 'pending' || strategiesStatus.value === 'pending')
 const fetchError = computed(() => accountsError.value || strategiesError.value)
 const hasAccounts = computed(() => Boolean(accounts.value?.length))
 const statusFilteredStrategies = computed(() =>
@@ -200,6 +206,13 @@ function openStrategyModal() {
   strategyModalOpen.value = true
 }
 
+async function refreshPageData() {
+  await Promise.all([
+    refreshAccounts(),
+    refreshStrategies()
+  ])
+}
+
 function addAccountBinding() {
   const accountKey = firstAccountKey()
   if (!accountKey) return
@@ -304,6 +317,10 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
         label="Add strategy"
         :disabled="!hasAccounts"
         @click="openStrategyModal"
+      />
+      <AppRefreshButton
+        :loading="refreshing"
+        @refresh="refreshPageData"
       />
     </template>
 

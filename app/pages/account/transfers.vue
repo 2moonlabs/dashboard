@@ -22,7 +22,12 @@ const selectedType = ref<TransferFilterType>('all')
 const transferModalOpen = ref(false)
 const saving = ref(false)
 
-const { data: accounts, error: accountsError } = await useAccounts()
+const {
+  data: accounts,
+  status: accountsStatus,
+  error: accountsError,
+  refresh: refreshAccounts
+} = await useAccounts()
 const {
   data: transfers,
   status: transfersStatus,
@@ -33,6 +38,7 @@ const {
 const insertTransfer = useInsertAccountTransfer()
 
 const loadingTransfers = computed(() => transfersStatus.value === 'pending')
+const refreshing = computed(() => accountsStatus.value === 'pending' || transfersStatus.value === 'pending')
 const fetchError = computed(() => accountsError.value || transfersError.value)
 
 const connectorOptions = computed(() => {
@@ -206,6 +212,13 @@ function openTransferModal() {
   transferModalOpen.value = true
 }
 
+async function refreshPageData() {
+  await Promise.all([
+    refreshAccounts(),
+    refreshTransfers()
+  ])
+}
+
 async function onSubmit(event: FormSubmitEvent<TransferForm>) {
   const fromAccount = event.data.transfer_type === 'deposit'
     ? null
@@ -258,6 +271,10 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
         label="Add transfer"
         :disabled="!hasAccounts"
         @click="openTransferModal"
+      />
+      <AppRefreshButton
+        :loading="refreshing"
+        @refresh="refreshPageData"
       />
     </template>
 
