@@ -22,7 +22,7 @@ const sortingOptions = {
   sortDescFirst: false
 }
 
-watch(() => [props.data, props.loading], () => {
+watch(() => props.data, () => {
   now.value = Date.now()
 })
 
