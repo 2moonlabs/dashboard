@@ -58,6 +58,19 @@ type AccountSnapshotAssetRow = {
   value: number
 }
 
+type StrategyStatusRow = {
+  id: number
+  active: boolean
+}
+
+type StrategyAccountRefRow = {
+  strategy_id: number
+  connector: string
+  account_user: string
+  account_name: string
+  account_type: string
+}
+
 interface AccountTransfersDatabase {
   public: {
     Tables: {
@@ -83,6 +96,18 @@ interface AccountTransfersDatabase {
         Row: AccountSnapshotAssetRow
         Insert: AccountSnapshotAssetRow
         Update: Partial<AccountSnapshotAssetRow>
+        Relationships: []
+      }
+      strategies: {
+        Row: StrategyStatusRow
+        Insert: StrategyStatusRow
+        Update: Partial<StrategyStatusRow>
+        Relationships: []
+      }
+      strategy_accounts: {
+        Row: StrategyAccountRefRow
+        Insert: StrategyAccountRefRow
+        Update: Partial<StrategyAccountRefRow>
         Relationships: []
       }
     }
@@ -163,6 +188,19 @@ const AccountSnapshotAssetRowSchema = z.object({
 
 const AccountSnapshotAssetRowsSchema = z.array(AccountSnapshotAssetRowSchema)
 
+const StrategyStatusRowSchema = z.object({
+  id: StrictInteger,
+  active: z.boolean()
+})
+
+const StrategyStatusRowsSchema = z.array(StrategyStatusRowSchema)
+
+const StrategyAccountRefRowSchema = AccountRowSchema.extend({
+  strategy_id: StrictInteger
+})
+
+const StrategyAccountRefRowsSchema = z.array(StrategyAccountRefRowSchema)
+
 const NewAccountTransferSchema = z.object({
   ts: z.string().datetime(),
   transfer_type: z.enum(TRANSFER_TYPES),
@@ -201,13 +239,28 @@ function compareSnapshotAssets(a: AccountSnapshotAsset, b: AccountSnapshotAsset)
   return b.value - a.value || a.asset.localeCompare(b.asset)
 }
 
+function activeStrategyAccountKeys(strategies: StrategyStatusRow[], strategyAccounts: StrategyAccountRefRow[]) {
+  const activeStrategyIds = new Set(strategies.filter(strategy => strategy.active).map(strategy => strategy.id))
+
+  return new Set(
+    strategyAccounts
+      .filter(account => activeStrategyIds.has(account.strategy_id))
+      .map(account => accountRefKey(account))
+  )
+}
+
 export function useLatestAccountBalances() {
   const supabase = useSupabaseClient<AccountTransfersDatabase>()
 
   return useAsyncData<LatestAccountBalances>(
     'account-balances-latest',
     async () => {
-      const [{ data: accountData, error: accountError }, { data: latestData, error: latestError }] = await Promise.all([
+      const [
+        { data: accountData, error: accountError },
+        { data: latestData, error: latestError },
+        { data: strategyData, error: strategyError },
+        { data: strategyAccountData, error: strategyAccountError }
+      ] = await Promise.all([
         supabase
           .from('accounts')
           .select('connector, account_user, account_name, account_type'),
@@ -216,13 +269,25 @@ export function useLatestAccountBalances() {
           .select('snapshot_ts')
           .order('snapshot_ts', { ascending: false })
           .limit(1)
-          .maybeSingle()
+          .maybeSingle(),
+        supabase
+          .from('strategies')
+          .select('id, active'),
+        supabase
+          .from('strategy_accounts')
+          .select('strategy_id, connector, account_user, account_name, account_type')
       ])
 
       if (accountError) throw accountError
       if (latestError) throw latestError
+      if (strategyError) throw strategyError
+      if (strategyAccountError) throw strategyAccountError
 
       const accounts = AccountRowsSchema.parse(accountData ?? []).sort(compareAccounts)
+      const activeAccountKeys = activeStrategyAccountKeys(
+        StrategyStatusRowsSchema.parse(strategyData ?? []),
+        StrategyAccountRefRowsSchema.parse(strategyAccountData ?? [])
+      )
       const latestSnapshot = LatestSnapshotRowSchema.nullable().parse(latestData)
       if (!latestSnapshot) {
         return {
@@ -231,7 +296,8 @@ export function useLatestAccountBalances() {
             ...account,
             snapshot_ts: null,
             total: null,
-            assets: []
+            assets: [],
+            hasActiveStrategy: activeAccountKeys.has(accountRefKey(account))
           }))
         }
       }
@@ -274,7 +340,8 @@ export function useLatestAccountBalances() {
           ...account,
           snapshot_ts: snapshot?.snapshot_ts ?? null,
           total: snapshot?.total ?? null,
-          assets: assetsByAccount.get(key) ?? []
+          assets: assetsByAccount.get(key) ?? [],
+          hasActiveStrategy: activeAccountKeys.has(key)
         }
       })
 

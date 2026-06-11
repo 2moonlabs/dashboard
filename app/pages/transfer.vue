@@ -327,7 +327,7 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
           description="Transfers can only be added after accounts are available from Supabase."
         />
 
-        <AccountTransfersTable
+        <TransfersTable
           :data="filteredTransfers"
           :loading="loadingTransfers"
         />

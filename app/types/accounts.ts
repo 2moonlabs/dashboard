@@ -32,6 +32,7 @@ export interface AccountBalance extends Account {
   snapshot_ts: string | null
   total: number | null
   assets: AccountSnapshotAsset[]
+  hasActiveStrategy: boolean
 }
 
 export interface LatestAccountBalances {

@@ -23,7 +23,7 @@ type AccountStatus = 'Active' | 'Idle'
 
 const statusDotClass: Record<AccountStatus, string> = {
   Active: 'bg-success',
-  Idle: 'bg-muted'
+  Idle: 'bg-neutral-500 dark:bg-neutral-300'
 }
 
 const total = computed(() =>
@@ -66,8 +66,8 @@ function formatAccount(row: AccountBalance) {
   return `${row.connector} / ${row.account_type} / ${row.account_user} / ${row.account_name}`
 }
 
-function getAccountStatus(_row: AccountBalance): AccountStatus {
-  return 'Active'
+function getAccountStatus(row: AccountBalance): AccountStatus {
+  return row.hasActiveStrategy ? 'Active' : 'Idle'
 }
 
 const columns: TableColumn<AccountBalance>[] = [
