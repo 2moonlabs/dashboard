@@ -4,6 +4,7 @@ import type { FormSubmitEvent } from '@nuxt/ui'
 import {
   accountRefKey,
   accountRefLabel,
+  uniqueSortedConnectors,
   type Account
 } from '~/types/accounts'
 import {
@@ -20,6 +21,8 @@ const editModalOpen = ref(false)
 const saving = ref(false)
 const editSaving = ref(false)
 const includeInactiveStrategies = ref(false)
+const selectedConnector = ref('all')
+const selectedUser = ref('all')
 const selectedTag = ref('all')
 const selectedStrategy = ref<StrategyWithAccounts | null>(null)
 
@@ -46,6 +49,26 @@ const hasAccounts = computed(() => Boolean(accounts.value?.length))
 const statusFilteredStrategies = computed(() =>
   (strategies.value ?? []).filter(strategy => includeInactiveStrategies.value || strategy.active)
 )
+const connectorOptions = computed(() => {
+  const connectors = uniqueSortedConnectors(
+    statusFilteredStrategies.value.flatMap(strategy => strategy.accounts.map(account => account.connector))
+  )
+
+  return [
+    { label: 'All connectors', value: 'all' },
+    ...connectors.map(connector => ({ label: connector, value: connector }))
+  ]
+})
+const userOptions = computed(() => {
+  const users = [...new Set(
+    statusFilteredStrategies.value.flatMap(strategy => strategy.accounts.map(account => account.account_user))
+  )].sort()
+
+  return [
+    { label: 'All users', value: 'all' },
+    ...users.map(user => ({ label: user, value: user }))
+  ]
+})
 const tagOptions = computed(() => {
   const tags = [...new Set(statusFilteredStrategies.value.flatMap(strategy => strategy.tags))].sort()
 
@@ -54,11 +77,23 @@ const tagOptions = computed(() => {
     ...tags.map(tag => ({ label: tag, value: tag }))
   ]
 })
-const filteredStrategies = computed(() =>
-  statusFilteredStrategies.value.filter(strategy =>
-    selectedTag.value === 'all' || strategy.tags.includes(selectedTag.value)
-  )
-)
+const filteredStrategies = computed(() => {
+  const accountFilterActive = selectedConnector.value !== 'all' || selectedUser.value !== 'all'
+
+  return statusFilteredStrategies.value.filter((strategy) => {
+    const tagMatched = selectedTag.value === 'all' || strategy.tags.includes(selectedTag.value)
+    const accountMatched = !accountFilterActive || strategy.accounts.some((account) => {
+      const connectorMatched = selectedConnector.value === 'all'
+        || account.connector === selectedConnector.value
+      const userMatched = selectedUser.value === 'all'
+        || account.account_user === selectedUser.value
+
+      return connectorMatched && userMatched
+    })
+
+    return tagMatched && accountMatched
+  })
+})
 const snapshotTs = computed(() =>
   (strategies.value ?? []).find(strategy => strategy.snapshot)?.snapshot?.snapshot_ts ?? null
 )
@@ -71,6 +106,18 @@ const snapshotLabel = computed(() => {
 watch(tagOptions, (options) => {
   if (!options.some(option => option.value === selectedTag.value)) {
     selectedTag.value = 'all'
+  }
+})
+
+watch(connectorOptions, (options) => {
+  if (!options.some(option => option.value === selectedConnector.value)) {
+    selectedConnector.value = 'all'
+  }
+})
+
+watch(userOptions, (options) => {
+  if (!options.some(option => option.value === selectedUser.value)) {
+    selectedUser.value = 'all'
   }
 })
 
@@ -327,6 +374,18 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
     <template #toolbar>
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <USelect
+            v-model="selectedConnector"
+            :items="connectorOptions"
+            value-key="value"
+            class="min-w-44"
+          />
+          <USelect
+            v-model="selectedUser"
+            :items="userOptions"
+            value-key="value"
+            class="min-w-36"
+          />
           <USelect
             v-model="selectedTag"
             :items="tagOptions"
