@@ -357,7 +357,7 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
 </script>
 
 <template>
-  <AppPage title="Strategy">
+  <AppPage title="Strategies">
     <template #actions>
       <UButton
         icon="i-lucide-plus"

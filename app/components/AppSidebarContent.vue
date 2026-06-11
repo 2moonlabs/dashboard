@@ -108,42 +108,42 @@ async function logout() {
         </NuxtLink>
 
         <NuxtLink
-          to="/account"
+          to="/accounts"
           class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition"
-          :class="linkClass('/account')"
+          :class="linkClass('/accounts')"
           @click="navigate"
         >
           <UIcon
             name="i-lucide-wallet"
             class="size-4 shrink-0"
           />
-          <span>Account</span>
+          <span>Accounts</span>
         </NuxtLink>
 
         <NuxtLink
-          to="/transfer"
+          to="/transfers"
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition"
-          :class="linkClass('/transfer')"
+          :class="linkClass('/transfers')"
           @click="navigate"
         >
           <UIcon
             name="i-lucide-arrow-left-right"
             class="size-4 shrink-0"
           />
-          <span>Transfer</span>
+          <span>Transfers</span>
         </NuxtLink>
 
         <NuxtLink
-          to="/strategy"
+          to="/strategies"
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition"
-          :class="linkClass('/strategy')"
+          :class="linkClass('/strategies')"
           @click="navigate"
         >
           <UIcon
             name="i-lucide-layers"
             class="size-4 shrink-0"
           />
-          <span>Strategy</span>
+          <span>Strategies</span>
         </NuxtLink>
 
         <button
@@ -155,7 +155,7 @@ async function logout() {
             name="i-lucide-file-text"
             class="size-4 shrink-0"
           />
-          <span class="flex-1">Statement</span>
+          <span class="flex-1">Statements</span>
           <UIcon
             name="i-lucide-chevron-down"
             class="size-4 shrink-0 transition"
