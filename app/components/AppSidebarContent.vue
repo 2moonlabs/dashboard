@@ -9,11 +9,6 @@ const supabase = useSupabaseClient()
 const toast = useToast()
 const colorModeReady = ref(false)
 
-const accountLinks = [
-  { label: 'Balances', to: '/account/balances' },
-  { label: 'Transfers', to: '/account/transfers' }
-]
-
 const statementLinks = [
   { label: 'Daily' },
   { label: 'Monthly' }
@@ -24,15 +19,10 @@ const fundingLinks = [
   { label: 'Arbitrage', to: '/funding-rate/arbitrage' }
 ]
 
-const accountOpen = ref(isAccountActive())
 const statementOpen = ref(false)
 const fundingOpen = ref(route.path.startsWith('/funding-rate/'))
 
 watch(() => route.path, (path) => {
-  if (isAccountActive()) {
-    accountOpen.value = true
-  }
-
   if (path.startsWith('/funding-rate/')) {
     fundingOpen.value = true
   }
@@ -48,10 +38,6 @@ function isActive(path: string) {
 
 function isFundingActive() {
   return route.path.startsWith('/funding-rate/')
-}
-
-function isAccountActive() {
-  return accountLinks.some(link => link.to === route.path)
 }
 
 function linkClass(path: string) {
@@ -121,39 +107,44 @@ async function logout() {
           <span>Overview</span>
         </NuxtLink>
 
-        <button
-          type="button"
+        <NuxtLink
+          to="/account"
           class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition"
-          :class="groupClass(isAccountActive())"
-          @click="accountOpen = !accountOpen"
+          :class="linkClass('/account')"
+          @click="navigate"
         >
           <UIcon
             name="i-lucide-wallet"
             class="size-4 shrink-0"
           />
-          <span class="flex-1">Account</span>
-          <UIcon
-            name="i-lucide-chevron-down"
-            class="size-4 shrink-0 transition"
-            :class="accountOpen ? 'rotate-180' : ''"
-          />
-        </button>
+          <span>Account</span>
+        </NuxtLink>
 
-        <div
-          v-show="accountOpen"
-          class="space-y-1"
+        <NuxtLink
+          to="/transfer"
+          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition"
+          :class="linkClass('/transfer')"
+          @click="navigate"
         >
-          <NuxtLink
-            v-for="link in accountLinks"
-            :key="link.to"
-            :to="link.to"
-            class="ml-7 flex items-center rounded-md px-3 py-2 text-sm transition"
-            :class="linkClass(link.to)"
-            @click="navigate"
-          >
-            <span>{{ link.label }}</span>
-          </NuxtLink>
-        </div>
+          <UIcon
+            name="i-lucide-arrow-left-right"
+            class="size-4 shrink-0"
+          />
+          <span>Transfer</span>
+        </NuxtLink>
+
+        <NuxtLink
+          to="/strategy"
+          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition"
+          :class="linkClass('/strategy')"
+          @click="navigate"
+        >
+          <UIcon
+            name="i-lucide-layers"
+            class="size-4 shrink-0"
+          />
+          <span>Strategy</span>
+        </NuxtLink>
 
         <button
           type="button"
@@ -186,19 +177,6 @@ async function logout() {
             <span>{{ link.label }}</span>
           </button>
         </div>
-
-        <NuxtLink
-          to="/strategy"
-          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition"
-          :class="linkClass('/strategy')"
-          @click="navigate"
-        >
-          <UIcon
-            name="i-lucide-layers"
-            class="size-4 shrink-0"
-          />
-          <span>Strategy</span>
-        </NuxtLink>
 
         <button
           type="button"

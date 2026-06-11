@@ -80,7 +80,7 @@ const snapshotLabel = computed(() => {
 </script>
 
 <template>
-  <AppPage title="Account Balances">
+  <AppPage title="Account">
     <template #actions>
       <AppRefreshButton
         :loading="loading"
