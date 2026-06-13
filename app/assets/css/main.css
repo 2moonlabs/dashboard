@@ -17,6 +17,11 @@
   --color-green-950: #1E2807;
 }
 
+:root:not(.dark),
+.light {
+  --ui-success: #587314;
+}
+
 .dark {
   --color-green-50: #F8FBE6;
   --color-green-100: #F0F7C8;

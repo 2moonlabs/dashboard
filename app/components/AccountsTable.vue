@@ -23,7 +23,7 @@ type AccountStatus = 'Active' | 'Idle'
 
 const statusDotClass: Record<AccountStatus, string> = {
   Active: 'bg-success',
-  Idle: 'bg-neutral-500 dark:bg-neutral-300'
+  Idle: 'bg-neutral-300'
 }
 
 const total = computed(() =>
