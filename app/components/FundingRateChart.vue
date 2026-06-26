@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const cardRef = useTemplateRef<HTMLElement | null>('cardRef')
 const { width } = useElementSize(cardRef)
+const maxVisibleScatterPoints = 300
 
 const points = computed(() =>
   [...props.data]
@@ -51,6 +52,7 @@ const yTicks = (v: number) => formatPercentShort(v)
 const tooltipTemplate = (d: Point) => `${formatFullDate(d.time)}\n${formatPercent(d.rate)}`
 
 const latest = computed(() => points.value[points.value.length - 1])
+const showScatter = computed(() => points.value.length <= maxVisibleScatterPoints)
 const latestClass = computed(() => {
   const rate = latest.value?.rate ?? 0
   if (rate > 0) return 'text-success'
@@ -98,6 +100,7 @@ const latestClass = computed(() => {
             color="var(--ui-primary)"
           />
           <VisScatter
+            v-if="showScatter"
             :x="x"
             :y="y"
             :size="4"
@@ -152,7 +155,7 @@ const latestClass = computed(() => {
 
   --vis-axis-grid-color: var(--ui-border);
   --vis-axis-tick-color: var(--ui-border);
-  --vis-axis-tick-label-color: var(--ui-text-dimmed);
+  --vis-axis-tick-label-color: var(--ui-text-muted);
 
   --vis-tooltip-background-color: var(--ui-bg);
   --vis-tooltip-border-color: var(--ui-border);

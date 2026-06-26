@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { format } from 'date-fns'
 import type { TableColumn } from '@nuxt/ui'
 import type { FundingRate } from '~/types'
 
@@ -29,11 +28,15 @@ function formatPercent(v: number): string {
   return `${(v * 100).toFixed(6)}%`
 }
 
+function formatUtcDateTime(value: string): string {
+  return new Date(value).toISOString().slice(0, 19).replace('T', ' ')
+}
+
 const columns: TableColumn<FundingRate>[] = [
   {
     accessorKey: 'funding_time',
     header: 'Time',
-    cell: ({ row }) => format(new Date(row.original.funding_time), 'yyyy-MM-dd HH:mm:ss')
+    cell: ({ row }) => formatUtcDateTime(row.original.funding_time)
   },
   {
     accessorKey: 'funding_interval',
