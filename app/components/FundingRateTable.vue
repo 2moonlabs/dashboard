@@ -19,7 +19,8 @@ watch(() => props.data, () => {
   page.value = 1
 })
 
-function formatInterval(n: number): string {
+function formatInterval(n: number | null): string {
+  if (n === null) return '-'
   if (n >= 1000) return `${n / 3600}h`
   return `${n}h`
 }

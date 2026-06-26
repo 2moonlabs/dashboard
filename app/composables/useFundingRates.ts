@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import type { FundingRate, RangePreset } from '~/types'
-import { EXCHANGES, type ExchangeId } from '~/types/exchanges'
 
 // ---------------------------------------------------------------------------
 // Data-boundary validation.
@@ -8,8 +7,41 @@ import { EXCHANGES, type ExchangeId } from '~/types/exchanges'
 // a column goes missing, becomes null, or drifts in type, parse() throws and
 // the error surfaces in useAsyncData.error → page-level UAlert. UI layer only
 // ever sees well-formed FundingRate.
-// Add new exchange: define its row schema here and register in `normalizers`.
 // ---------------------------------------------------------------------------
+
+type FundingRateRow = {
+  exchange: string
+  symbol: string
+  funding_time: string
+  funding_rate: number
+  funding_interval: number | null
+}
+
+interface FundingRatesDatabase {
+  public: {
+    Tables: {
+      funding_rates: {
+        Row: FundingRateRow
+        Insert: FundingRateRow
+        Update: Partial<FundingRateRow>
+        Relationships: []
+      }
+    }
+    Views: Record<string, never>
+    Functions: {
+      distinct_funding_exchanges: {
+        Args: Record<PropertyKey, never>
+        Returns: string[]
+      }
+      distinct_funding_symbols: {
+        Args: { p_exchange: string }
+        Returns: string[]
+      }
+    }
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
+  }
+}
 
 // Strict numeric schema.
 // Rejects null / undefined / empty string / non-numeric strings / NaN / Infinity.
@@ -25,38 +57,60 @@ const StrictNumber = z.preprocess(
   z.number().finite()
 )
 
-const CoinbaseFundingRateRowSchema = z.object({
+const StringsSchema = z.array(z.string().min(1))
+
+const FundingRateRowSchema = z.object({
   symbol: z.string().min(1),
   funding_time: z.string().min(1),
   funding_rate: StrictNumber,
-  funding_interval: StrictNumber
+  funding_interval: StrictNumber.nullable()
 })
 
-function normalizeCoinbaseRow(raw: unknown): FundingRate {
-  return CoinbaseFundingRateRowSchema.parse(raw)
+function normalizeFundingRateRow(raw: unknown): FundingRate {
+  return FundingRateRowSchema.parse(raw)
 }
-
-const normalizers: Record<ExchangeId, (raw: unknown) => FundingRate> = {
-  coinbase: normalizeCoinbaseRow
-}
-
-const SymbolsSchema = z.array(z.string())
 
 // ---------------------------------------------------------------------------
 // Composables
 // ---------------------------------------------------------------------------
 
-export function useSymbols(exchange: Ref<ExchangeId>) {
-  const supabase = useSupabaseClient()
-  return useAsyncData(
+export function useFundingExchanges() {
+  const supabase = useSupabaseClient<FundingRatesDatabase>()
+  return useAsyncData<{ label: string, value: string }[]>(
+    'funding-exchanges',
+    async () => {
+      const { data, error } = await supabase.rpc('distinct_funding_exchanges')
+
+      if (error) throw error
+
+      return StringsSchema.parse(data ?? []).map(exchange => ({
+        label: exchange.toUpperCase(),
+        value: exchange
+      }))
+    },
+    { default: () => [] }
+  )
+}
+
+export function useSymbols(exchange: Ref<string | null | undefined>) {
+  const supabase = useSupabaseClient<FundingRatesDatabase>()
+  return useAsyncData<string[]>(
     'funding-symbols',
     async () => {
-      const cfg = EXCHANGES[exchange.value].fundingRates
-      const { data, error } = await supabase.rpc(cfg.distinctSymbolsFunction)
+      if (!exchange.value) return []
+
+      const { data, error } = await supabase.rpc('distinct_funding_symbols', {
+        p_exchange: exchange.value
+      })
+
       if (error) throw error
-      return SymbolsSchema.parse(data ?? [])
+
+      return StringsSchema.parse(data ?? [])
     },
-    { watch: [exchange] }
+    {
+      watch: [exchange],
+      default: () => []
+    }
   )
 }
 
@@ -67,20 +121,20 @@ function rangeCutoff(r: RangePreset): string | null {
 }
 
 export function useFundingHistory(
-  exchange: Ref<ExchangeId>,
+  exchange: Ref<string | null | undefined>,
   symbol: Ref<string | null | undefined>,
   range: Ref<RangePreset>
 ) {
-  const supabase = useSupabaseClient()
+  const supabase = useSupabaseClient<FundingRatesDatabase>()
   return useAsyncData<FundingRate[]>(
     'funding-history',
     async () => {
-      if (!symbol.value) return []
-      const cfg = EXCHANGES[exchange.value].fundingRates
+      if (!exchange.value || !symbol.value) return []
 
       let query = supabase
-        .from(cfg.table)
+        .from('funding_rates')
         .select('symbol, funding_time, funding_rate, funding_interval')
+        .eq('exchange', exchange.value)
         .eq('symbol', symbol.value)
         .order('funding_time', { ascending: false })
 
@@ -94,8 +148,7 @@ export function useFundingHistory(
       const { data, error } = await query
       if (error) throw error
 
-      const normalize = normalizers[exchange.value]
-      return (data ?? []).map(normalize)
+      return (data ?? []).map(normalizeFundingRateRow)
     },
     {
       watch: [exchange, symbol, range],

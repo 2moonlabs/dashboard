@@ -1,8 +1,25 @@
 <script setup lang="ts">
 import type { RangePreset } from '~/types'
-import { EXCHANGE_OPTIONS, type ExchangeId } from '~/types/exchanges'
 
-const selectedExchange = ref<ExchangeId>('coinbase')
+const {
+  data: exchangeOptions,
+  status: exchangesStatus,
+  error: exchangesError,
+  refresh: refreshExchanges
+} = await useFundingExchanges()
+
+const selectedExchange = ref<string | undefined>(exchangeOptions.value?.[0]?.value)
+
+watch(exchangeOptions, (list) => {
+  if (!list?.length) {
+    selectedExchange.value = undefined
+    return
+  }
+
+  if (!selectedExchange.value || !list.some(option => option.value === selectedExchange.value)) {
+    selectedExchange.value = list[0]!.value
+  }
+}, { immediate: true })
 
 const {
   data: symbols,
@@ -12,6 +29,11 @@ const {
 } = await useSymbols(selectedExchange)
 
 const selectedSymbol = ref<string | undefined>(symbols.value?.[0])
+
+watch(selectedExchange, () => {
+  selectedSymbol.value = undefined
+})
+
 watch(symbols, (list) => {
   if (!list?.length) {
     selectedSymbol.value = undefined
@@ -40,11 +62,32 @@ const {
   range
 )
 const loading = computed(() => status.value === 'pending')
-const refreshing = computed(() => symbolsStatus.value === 'pending' || status.value === 'pending')
+const refreshing = computed(() =>
+  exchangesStatus.value === 'pending' || symbolsStatus.value === 'pending' || status.value === 'pending'
+)
 
-const fetchError = computed(() => symbolsError.value || historyError.value)
+const fetchError = computed(() => exchangesError.value || symbolsError.value || historyError.value)
+
+const emptyState = computed(() => {
+  if (!exchangeOptions.value?.length) {
+    return {
+      title: 'No exchanges found',
+      description: 'perpetual_contracts has no rows. Insert contracts or confirm the current user can read the table.'
+    }
+  }
+
+  if (!symbols.value?.length) {
+    return {
+      title: 'No symbols found',
+      description: `No perpetual contracts found for ${(selectedExchange.value ?? '').toUpperCase()}.`
+    }
+  }
+
+  return null
+})
 
 async function refreshPageData() {
+  await refreshExchanges()
   await refreshSymbols()
   await nextTick()
   await refreshHistory()
@@ -65,7 +108,7 @@ async function refreshPageData() {
         <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <USelect
             v-model="selectedExchange"
-            :items="EXCHANGE_OPTIONS"
+            :items="exchangeOptions ?? []"
             value-key="value"
             class="min-w-36"
           />
@@ -100,12 +143,12 @@ async function refreshPageData() {
           :description="String((fetchError as Error)?.message ?? fetchError)"
         />
         <UAlert
-          v-else-if="!symbols?.length"
+          v-else-if="emptyState"
           color="warning"
           variant="soft"
           icon="i-lucide-info"
-          title="No symbols found"
-          description="Symbols RPC returned empty. Check the distinct-symbols function exists for the selected exchange and that authenticated has EXECUTE permission."
+          :title="emptyState.title"
+          :description="emptyState.description"
         />
         <FundingRateChart :data="history ?? []" :loading="loading" />
         <FundingRateTable :data="history ?? []" :loading="loading" />
