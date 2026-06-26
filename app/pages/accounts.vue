@@ -69,6 +69,19 @@ const filteredBalances = computed(() => {
     }]
   })
 })
+const filtersActive = computed(() =>
+  selectedConnector.value !== 'all'
+  || selectedUser.value !== 'all'
+  || selectedType.value !== 'all'
+  || showSmallBalances.value
+)
+
+function resetFilters() {
+  selectedConnector.value = 'all'
+  selectedUser.value = 'all'
+  selectedType.value = 'all'
+  showSmallBalances.value = false
+}
 
 const snapshotLabel = computed(() => {
   if (!snapshotTs.value) return 'No snapshot'
@@ -110,6 +123,14 @@ const snapshotLabel = computed(() => {
             v-model="showSmallBalances"
             label="Show small balances"
             class="items-center"
+          />
+          <UButton
+            label="Reset filters"
+            variant="outline"
+            color="neutral"
+            class="w-fit"
+            :disabled="!filtersActive"
+            @click="resetFilters"
           />
         </div>
         <div class="text-xs text-muted tabular-nums lg:text-right">

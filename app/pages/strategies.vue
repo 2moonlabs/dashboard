@@ -102,6 +102,19 @@ const snapshotLabel = computed(() => {
 
   return `${new Date(snapshotTs.value).toISOString().slice(0, 19).replace('T', ' ')} UTC`
 })
+const filtersActive = computed(() =>
+  selectedConnector.value !== 'all'
+  || selectedUser.value !== 'all'
+  || selectedTag.value !== 'all'
+  || includeInactiveStrategies.value
+)
+
+function resetFilters() {
+  selectedConnector.value = 'all'
+  selectedUser.value = 'all'
+  selectedTag.value = 'all'
+  includeInactiveStrategies.value = false
+}
 
 watch(tagOptions, (options) => {
   if (!options.some(option => option.value === selectedTag.value)) {
@@ -396,6 +409,14 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
             v-model="includeInactiveStrategies"
             label="Include inactive strategies"
             class="items-center"
+          />
+          <UButton
+            label="Reset filters"
+            variant="outline"
+            color="neutral"
+            class="w-fit"
+            :disabled="!filtersActive"
+            @click="resetFilters"
           />
         </div>
         <div class="text-xs text-muted tabular-nums lg:text-right">

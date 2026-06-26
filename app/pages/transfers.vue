@@ -113,6 +113,17 @@ const filteredTransfers = computed(() => {
     return connectorMatched && accountMatched && typeMatched
   })
 })
+const filtersActive = computed(() =>
+  selectedConnector.value !== 'all'
+  || selectedAccount.value !== 'all'
+  || selectedType.value !== 'all'
+)
+
+function resetFilters() {
+  selectedConnector.value = 'all'
+  selectedAccount.value = 'all'
+  selectedType.value = 'all'
+}
 
 const formSchema = z.object({
   ts: z.string().min(1, 'Timestamp is required'),
@@ -299,6 +310,14 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
             :items="transferTypeFilterOptions"
             value-key="value"
             class="min-w-44"
+          />
+          <UButton
+            label="Reset filters"
+            variant="outline"
+            color="neutral"
+            class="w-fit"
+            :disabled="!filtersActive"
+            @click="resetFilters"
           />
         </div>
 
