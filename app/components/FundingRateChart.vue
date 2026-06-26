@@ -116,6 +116,8 @@ const latestClass = computed(() => {
             :tick-format="yTicks"
           />
           <VisCrosshair
+            :x="x"
+            :y="y"
             color="var(--ui-primary)"
             :template="tooltipTemplate"
           />
