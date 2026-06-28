@@ -58,7 +58,7 @@ function formatFee(value: number) {
 function numberCell(value: number | null) {
   if (value === null) return placeholder()
 
-  return h('span', { class: 'flex w-full items-center justify-center tabular-nums text-[13px] font-semibold text-highlighted' }, humanizeNumber(value))
+  return h('span', { class: 'flex w-full items-center justify-end tabular-nums text-[13px] font-semibold text-highlighted' }, humanizeNumber(value))
 }
 
 function metricLine(label: string, value: number | null, formatter: (value: number) => string) {
@@ -100,8 +100,8 @@ const columns: TableColumn<AccountFeeTier>[] = [
     header: '30d Spot Volume',
     meta: {
       class: {
-        th: 'w-40 min-w-40 text-center',
-        td: 'w-40 min-w-40 text-center align-middle'
+        th: 'w-40 min-w-40 text-right',
+        td: 'w-40 min-w-40 text-right align-middle'
       }
     },
     cell: ({ row }) => numberCell(row.original.spot_volume_30d)
@@ -133,8 +133,8 @@ const columns: TableColumn<AccountFeeTier>[] = [
     header: '30d Futures Volume',
     meta: {
       class: {
-        th: 'w-40 min-w-40 text-center',
-        td: 'w-40 min-w-40 text-center align-middle'
+        th: 'w-40 min-w-40 text-right',
+        td: 'w-40 min-w-40 text-right align-middle'
       }
     },
     cell: ({ row }) => numberCell(row.original.futures_volume_30d)
