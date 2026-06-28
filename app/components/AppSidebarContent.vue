@@ -134,13 +134,26 @@ async function logout() {
         </NuxtLink>
 
         <NuxtLink
+          to="/fee-tiers"
+          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition"
+          :class="linkClass('/fee-tiers')"
+          @click="navigate"
+        >
+          <UIcon
+            name="i-lucide-circle-dollar-sign"
+            class="size-4 shrink-0"
+          />
+          <span>Fee Tiers</span>
+        </NuxtLink>
+
+        <NuxtLink
           to="/strategies"
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition"
           :class="linkClass('/strategies')"
           @click="navigate"
         >
           <UIcon
-            name="i-lucide-layers"
+            name="i-lucide-chart-candlestick"
             class="size-4 shrink-0"
           />
           <span>Strategies</span>

@@ -111,7 +111,7 @@ function pnlCell(value: number | null | undefined, total: number | null | undefi
   return h('div', { class: 'flex flex-col items-end gap-1' }, [
     ratio === null
       ? placeholder()
-      : h('span', { class: `${valueClass(value)} tabular-nums text-[13px] font-medium` }, `${changeValue(ratio, ratioFormatter)}${unit}`),
+      : h('span', { class: `${valueClass(value)} tabular-nums text-[13px] font-medium` }, `${changeValue(ratio, ratioFormatter)} ${unit}`),
     h('span', { class: 'tabular-nums text-[11px] text-muted' }, changeValue(value, valueFormatter, 0.005))
   ])
 }
@@ -306,7 +306,7 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
         td: 'text-right'
       }
     },
-    cell: ({ row }) => pnlCell(row.original.snapshot?.today, row.original.snapshot?.total, 10000, 'bps')
+    cell: ({ row }) => pnlCell(row.original.snapshot?.today, row.original.snapshot?.total, 10000, 'bp')
   },
   {
     id: 'weekPnl',

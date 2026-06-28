@@ -57,6 +57,23 @@ export interface AccountTransfer {
   note: string
 }
 
+export interface AccountFeeTier {
+  connector: string
+  account_user: string
+  account_name: string
+  snapshot_ts: string
+  spot_volume_30d: number | null
+  spot_maker_fee: number | null
+  spot_taker_fee: number | null
+  spot_tier_volume: number | null
+  spot_next_tier_volume: number | null
+  futures_volume_30d: number | null
+  futures_maker_fee: number | null
+  futures_taker_fee: number | null
+  futures_tier_volume: number | null
+  futures_next_tier_volume: number | null
+}
+
 export interface NewAccountTransferInput {
   ts: string
   transfer_type: TransferType
@@ -101,12 +118,22 @@ export function compareAccounts(a: Account, b: Account) {
     || a.account_type.localeCompare(b.account_type)
 }
 
+export function compareAccountFeeTiers(a: AccountFeeTier, b: AccountFeeTier) {
+  return compareConnectors(a.connector, b.connector)
+    || a.account_user.localeCompare(b.account_user)
+    || a.account_name.localeCompare(b.account_name)
+}
+
 export function accountRefKey(ref: AccountRef) {
   return JSON.stringify([ref.connector, ref.account_user, ref.account_name, ref.account_type])
 }
 
 export function accountRefLabel(ref: AccountRef) {
   return `${ref.connector}.${ref.account_type}.${ref.account_user}.${ref.account_name}`
+}
+
+export function accountFeeTierLabel(ref: Pick<AccountFeeTier, 'connector' | 'account_user'>) {
+  return `${ref.connector} / ${ref.account_user}`
 }
 
 export function transferSideLabel(transfer: AccountTransfer, side: 'from' | 'to') {
