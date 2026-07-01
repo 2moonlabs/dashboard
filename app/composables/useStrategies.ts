@@ -684,6 +684,11 @@ export function useStrategies() {
       const weekStart = new Date(todayStart)
       weekStart.setUTCDate(weekStart.getUTCDate() - 6)
       const monthStart = utcStartOfMonth(latestDate)
+      const transferStart = new Date(Math.min(
+        todayStart.getTime(),
+        weekStart.getTime(),
+        monthStart.getTime()
+      ))
       const strategyIds = strategies.map(strategy => strategy.id)
       const snapshotColumns = 'snapshot_ts, strategy_id, total, last_order_placed_at, last_trade_filled_at'
 
@@ -752,7 +757,7 @@ export function useStrategies() {
       const { data: transferData, error: transferError } = await supabase
         .from('account_transfers')
         .select('id, ts, transfer_type, from_connector, from_account_user, from_account_name, from_account_type, to_connector, to_account_user, to_account_name, to_account_type, asset, amount')
-        .gt('ts', monthStart.toISOString())
+        .gt('ts', transferStart.toISOString())
         .lte('ts', latestSnapshot.snapshot_ts)
         .order('ts', { ascending: true })
         .limit(5000)
