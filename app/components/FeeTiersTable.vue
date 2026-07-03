@@ -178,7 +178,7 @@ const columns: TableColumn<AccountFeeTier>[] = [
     >
       <template #empty>
         <div class="flex items-center justify-center py-10 text-sm text-muted">
-          No fee tiers
+          No volume data
         </div>
       </template>
     </UTable>

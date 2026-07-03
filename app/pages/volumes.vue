@@ -76,7 +76,7 @@ function resetFilters() {
 </script>
 
 <template>
-  <AppPage title="Fee Tiers">
+  <AppPage title="Volumes">
     <template #actions>
       <AppRefreshButton
         :loading="loading"
@@ -122,7 +122,7 @@ function resetFilters() {
           color="error"
           variant="soft"
           icon="i-lucide-triangle-alert"
-          title="Failed to load fee tiers"
+          title="Failed to load volume data"
           :description="String((error as Error)?.message ?? error)"
         />
 

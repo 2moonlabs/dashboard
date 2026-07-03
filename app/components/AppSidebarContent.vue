@@ -101,7 +101,7 @@ async function logout() {
           @click="navigate"
         >
           <UIcon
-            name="i-lucide-chart-no-axes-column-increasing"
+            name="i-lucide-panels-top-left"
             class="size-4 shrink-0"
           />
           <span>Overview</span>
@@ -134,16 +134,16 @@ async function logout() {
         </NuxtLink>
 
         <NuxtLink
-          to="/fee-tiers"
+          to="/volumes"
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition"
-          :class="linkClass('/fee-tiers')"
+          :class="linkClass('/volumes')"
           @click="navigate"
         >
           <UIcon
-            name="i-lucide-circle-dollar-sign"
+            name="i-lucide-chart-no-axes-column-increasing"
             class="size-4 shrink-0"
           />
-          <span>Fee Tiers</span>
+          <span>Volumes</span>
         </NuxtLink>
 
         <NuxtLink
@@ -153,7 +153,7 @@ async function logout() {
           @click="navigate"
         >
           <UIcon
-            name="i-lucide-chart-candlestick"
+            name="i-lucide-align-horizontal-distribute-center"
             class="size-4 shrink-0"
           />
           <span>Strategies</span>
