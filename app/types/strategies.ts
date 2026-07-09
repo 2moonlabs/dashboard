@@ -46,6 +46,7 @@ export interface NewStrategyInput {
 
 export interface UpdateStrategyInput {
   id: number
+  strategy_name: string
   server: string | null
   url: string | null
   active: boolean

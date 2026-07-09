@@ -209,6 +209,7 @@ const NewStrategySchema = z.object({
 
 const UpdateStrategySchema = z.object({
   id: StrictInteger,
+  strategy_name: z.string().trim().min(1),
   server: z.string().trim().nullable(),
   url: z.string().trim().nullable(),
   active: z.boolean(),
@@ -894,6 +895,7 @@ export function useUpdateStrategy() {
     const { data, error } = await supabase
       .from('strategies')
       .update({
+        strategy_name: payload.strategy_name,
         server: nullableText(payload.server),
         url: nullableText(payload.url),
         active: payload.active,

@@ -210,6 +210,7 @@ const formSchema = z.object({
 })
 
 const editFormSchema = z.object({
+  strategy_name: z.string().trim().min(1, 'Strategy name is required'),
   server: z.string(),
   url: z.string(),
   active: z.boolean(),
@@ -228,6 +229,7 @@ const form = reactive<StrategyForm>({
 })
 
 const editForm = reactive<EditForm>({
+  strategy_name: '',
   server: '',
   url: '',
   active: true,
@@ -288,6 +290,7 @@ function removeAccountBinding(index: number) {
 
 function openEditModal(strategy: StrategyWithAccounts) {
   selectedStrategy.value = strategy
+  editForm.strategy_name = strategy.strategy_name
   editForm.server = strategy.server ?? ''
   editForm.url = strategy.url ?? ''
   editForm.active = strategy.active
@@ -347,6 +350,7 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
   try {
     await updateStrategy({
       id: selectedStrategy.value.id,
+      strategy_name: event.data.strategy_name.trim(),
       server: nullIfEmpty(event.data.server),
       url: nullIfEmpty(event.data.url),
       active: event.data.active,
@@ -467,7 +471,7 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
         @submit="onSubmit"
       >
         <UFormField
-          label="Strategy name"
+          label="Strategy"
           name="strategy_name"
           required
         >
@@ -612,6 +616,17 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
         @submit="onEditSubmit"
       >
         <UFormField
+          label="Strategy"
+          name="strategy_name"
+          required
+        >
+          <UInput
+            v-model="editForm.strategy_name"
+            class="w-full"
+          />
+        </UFormField>
+
+        <UFormField
           label="Status"
           name="active"
         >
@@ -622,22 +637,22 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
           />
         </UFormField>
 
-        <UFormField
-          label="Tags"
-          name="tags"
-        >
-          <UInputTags
-            v-model="editForm.tags"
-            add-on-blur
-            add-on-paste
-            add-on-tab
-            delimiter=","
-            placeholder="Add tag"
-            class="w-full"
-          />
-        </UFormField>
-
         <div class="grid gap-4 sm:grid-cols-2">
+          <UFormField
+            label="Tags"
+            name="tags"
+          >
+            <UInputTags
+              v-model="editForm.tags"
+              add-on-blur
+              add-on-paste
+              add-on-tab
+              delimiter=","
+              placeholder="Add tag"
+              class="w-full"
+            />
+          </UFormField>
+
           <UFormField
             label="Server"
             name="server"
@@ -647,17 +662,17 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
               class="w-full"
             />
           </UFormField>
-
-          <UFormField
-            label="URL"
-            name="url"
-          >
-            <UInput
-              v-model="editForm.url"
-              class="w-full"
-            />
-          </UFormField>
         </div>
+
+        <UFormField
+          label="URL"
+          name="url"
+        >
+          <UInput
+            v-model="editForm.url"
+            class="w-full"
+          />
+        </UFormField>
 
         <div class="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
           <UButton
