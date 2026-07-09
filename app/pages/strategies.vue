@@ -637,32 +637,30 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
           />
         </UFormField>
 
-        <div class="grid gap-4 sm:grid-cols-2">
-          <UFormField
-            label="Tags"
-            name="tags"
-          >
-            <UInputTags
-              v-model="editForm.tags"
-              add-on-blur
-              add-on-paste
-              add-on-tab
-              delimiter=","
-              placeholder="Add tag"
-              class="w-full"
-            />
-          </UFormField>
+        <UFormField
+          label="Tags"
+          name="tags"
+        >
+          <UInputTags
+            v-model="editForm.tags"
+            add-on-blur
+            add-on-paste
+            add-on-tab
+            delimiter=","
+            placeholder="Add tag"
+            class="w-full"
+          />
+        </UFormField>
 
-          <UFormField
-            label="Server"
-            name="server"
-          >
-            <UInput
-              v-model="editForm.server"
-              class="w-full"
-            />
-          </UFormField>
-        </div>
+        <UFormField
+          label="Server"
+          name="server"
+        >
+          <UInput
+            v-model="editForm.server"
+            class="w-full"
+          />
+        </UFormField>
 
         <UFormField
           label="URL"
