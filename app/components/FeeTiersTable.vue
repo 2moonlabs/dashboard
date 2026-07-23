@@ -62,8 +62,8 @@ function numberCell(value: number | null) {
 }
 
 function metricLine(label: string, value: number | null, formatter: (value: number) => string) {
-  return h('div', { class: 'grid grid-cols-[2.75rem_auto] items-baseline gap-2' }, [
-    h('span', { class: 'text-muted' }, label),
+  return h('div', { class: 'grid grid-cols-[3rem_auto] items-baseline gap-2' }, [
+    h('span', { class: 'text-[10px] uppercase tracking-wide text-dimmed' }, label),
     value === null
       ? placeholder()
       : h('span', { class: 'tabular-nums text-[13px] text-highlighted' }, formatter(value))
@@ -71,14 +71,14 @@ function metricLine(label: string, value: number | null, formatter: (value: numb
 }
 
 function feeCell(maker: number | null, taker: number | null) {
-  return h('div', { class: 'space-y-1 text-right' }, [
+  return h('div', { class: 'space-y-0.5 text-right' }, [
     metricLine('Maker', maker, formatFee),
     metricLine('Taker', taker, formatFee)
   ])
 }
 
 function tierCell(current: number | null, next: number | null) {
-  return h('div', { class: 'space-y-1 text-right' }, [
+  return h('div', { class: 'space-y-0.5 text-right' }, [
     metricLine('Current', current, humanizeNumber),
     metricLine('Next', next, humanizeNumber)
   ])
@@ -170,10 +170,7 @@ const columns: TableColumn<AccountFeeTier>[] = [
       :data="data"
       :columns="columns"
       :loading="loading"
-      :ui="{
-        th: 'text-xs whitespace-nowrap',
-        td: 'align-top text-xs whitespace-nowrap'
-      }"
+      :ui="tableUi({ td: 'align-top whitespace-nowrap' })"
       sticky
     >
       <template #empty>

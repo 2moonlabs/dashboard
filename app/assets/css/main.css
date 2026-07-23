@@ -15,6 +15,10 @@
   --color-green-800: #465B12;
   --color-green-900: #394A11;
   --color-green-950: #1E2807;
+
+  /* P&L up/down, matched on OKLCH lightness so neither sign outweighs the other. */
+  --color-pnl-up: oklch(0.52 0.125 125);
+  --color-pnl-down: oklch(0.52 0.19 25);
 }
 
 :root:not(.dark),
@@ -34,4 +38,7 @@
   --color-green-800: #525E1C;
   --color-green-900: #45501B;
   --color-green-950: #242C0B;
+
+  --color-pnl-up: oklch(0.763 0.155 117);
+  --color-pnl-down: oklch(0.763 0.13 22);
 }

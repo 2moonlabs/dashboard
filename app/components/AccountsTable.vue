@@ -93,7 +93,7 @@ const columns: TableColumn<AccountBalance>[] = [
   {
     id: 'account',
     header: 'Account',
-    cell: ({ row }) => h('span', { class: 'font-mono text-sm text-highlighted' }, formatAccount(row.original))
+    cell: ({ row }) => h('span', { class: 'font-mono text-xs text-highlighted' }, formatAccount(row.original))
   },
   {
     id: 'status',
@@ -194,9 +194,7 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
       :expanded-options="expandedOptions"
       :get-row-id="getRowId"
       :loading="loading"
-      :ui="{
-        td: '[&[colspan]]:p-0'
-      }"
+      :ui="tableUi({ td: '[&[colspan]]:p-0' })"
       sticky
     >
       <template #expanded="{ row }">
@@ -205,10 +203,7 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
             v-if="row.original.assets.length"
             :data="row.original.assets"
             :columns="assetColumns"
-            :ui="{
-              th: 'px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-dimmed whitespace-nowrap',
-              td: 'px-3 py-2 text-xs text-highlighted whitespace-nowrap'
-            }"
+            :ui="nestedTableUi()"
           />
           <div
             v-else
@@ -227,13 +222,13 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
 
       <template #body-bottom>
         <tr v-if="data.length" class="border-t-2 border-default bg-elevated/40">
-          <td class="p-4 whitespace-nowrap" />
-          <td class="p-4 text-xs font-medium uppercase tracking-wider text-muted whitespace-nowrap">
+          <td class="px-4 py-2 whitespace-nowrap" />
+          <td class="px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted whitespace-nowrap">
             Total
           </td>
-          <td class="p-4 whitespace-nowrap" />
-          <td class="p-4 whitespace-nowrap" />
-          <td class="p-4 text-right whitespace-nowrap">
+          <td class="px-4 py-2 whitespace-nowrap" />
+          <td class="px-4 py-2 whitespace-nowrap" />
+          <td class="px-4 py-2 text-right whitespace-nowrap">
             <span class="tabular-nums text-[13px] font-semibold text-highlighted">{{ formatCurrency(total) }}</span>
           </td>
         </tr>

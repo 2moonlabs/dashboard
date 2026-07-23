@@ -57,6 +57,12 @@ const columns: TableColumn<AccountTransfer>[] = [
   {
     accessorKey: 'amount',
     header: 'Amount',
+    meta: {
+      class: {
+        th: 'text-right',
+        td: 'text-right'
+      }
+    },
     cell: ({ row }) => h('span', { class: 'tabular-nums' }, formatAmount(row.original.amount))
   },
   {
@@ -73,10 +79,7 @@ const columns: TableColumn<AccountTransfer>[] = [
       :data="data"
       :columns="columns"
       :loading="loading"
-      :ui="{
-        th: 'text-xs',
-        td: 'text-xs'
-      }"
+      :ui="tableUi()"
       sticky
     >
       <template #empty>

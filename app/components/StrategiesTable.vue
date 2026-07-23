@@ -89,8 +89,8 @@ function changeValue(value: number, formatter: Intl.NumberFormat, zeroThreshold 
 }
 
 function valueClass(value: number) {
-  if (value < 0) return 'text-error'
-  if (value > 0) return 'text-success'
+  if (value < 0) return 'text-pnl-down'
+  if (value > 0) return 'text-pnl-up'
   return 'text-muted'
 }
 
@@ -108,7 +108,7 @@ function pnlCell(value: number | null | undefined, total: number | null | undefi
 
   const ratio = relativePnl(value, total, multiplier)
 
-  return h('div', { class: 'flex flex-col items-end gap-1' }, [
+  return h('div', { class: 'flex flex-col items-end gap-0.5' }, [
     ratio === null
       ? placeholder()
       : h('span', { class: `${valueClass(value)} tabular-nums text-[13px] font-medium` }, `${changeValue(ratio, ratioFormatter)} ${unit}`),
@@ -146,6 +146,18 @@ function formatAge(seconds: number) {
   const days = Math.floor(hours / 24)
   const unit = days === 1 ? 'day' : 'days'
   return `${days} ${unit} ago`
+}
+
+function formatActivity(seconds: number) {
+  if (seconds < 60) return `${seconds}s`
+
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m`
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h`
+
+  return `${Math.floor(hours / 24)}d`
 }
 
 function orderAgeClass(seconds: number) {
@@ -215,18 +227,21 @@ function accountsSortValue(accounts: StrategyAccount[]) {
 function activityLine(label: string, value: string | null | undefined, className: string) {
   const seconds = ageSeconds(value)
 
-  return h('div', { class: 'grid grid-cols-[2.25rem_auto] items-baseline gap-1.5' }, [
-    h('span', { class: 'text-muted' }, label),
+  return h('div', { class: 'grid grid-cols-[2.5rem_auto] items-baseline gap-2' }, [
+    h('span', { class: 'text-[10px] uppercase tracking-wide text-dimmed' }, label),
     seconds === null
       ? placeholder()
-      : h('span', { class: `${className} tabular-nums` }, formatAge(seconds))
+      : h('span', {
+          class: `${className} tabular-nums`,
+          title: formatAge(seconds)
+        }, formatActivity(seconds))
   ])
 }
 
 function activityCell(row: StrategyWithAccounts) {
   const orderSeconds = ageSeconds(row.snapshot?.last_order_placed_at)
 
-  return h('div', { class: 'space-y-1' }, [
+  return h('div', { class: 'space-y-0.5' }, [
     activityLine(
       'Order',
       row.snapshot?.last_order_placed_at,
@@ -245,10 +260,10 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
     cell: ({ row }) => {
       const tags = [`id:${row.original.id}`, ...strategyTags(row.original)]
 
-      return h('div', { class: 'space-y-1.5' }, [
+      return h('div', { class: 'space-y-1' }, [
         h('div', { class: 'relative min-w-0' }, [
           h('div', { class: 'flex min-w-0 flex-wrap items-center gap-1.5' }, [
-            h('span', { class: 'font-medium text-highlighted' }, row.original.strategy_name),
+            h('span', { class: 'font-medium lowercase text-highlighted' }, row.original.strategy_name),
             row.original.active
               ? null
               : h(resolveComponent('UBadge'), {
@@ -346,11 +361,11 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
 
       return h(
         'div',
-        { class: 'space-y-2' },
+        { class: 'space-y-1.5' },
         groups.map((group) => {
           const assets = accountAssets(group.assets)
 
-          return h('div', { class: 'space-y-1' }, [
+          return h('div', { class: 'space-y-0.5' }, [
             h('div', { class: 'font-mono text-xs text-highlighted' }, accountRefLabel(group.account)),
             assets.length
               ? h(
@@ -408,11 +423,7 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
       :columns="columns"
       :loading="loading"
       :sorting-options="sortingOptions"
-      :ui="{
-        tr: 'group/strategy-row',
-        th: 'text-xs whitespace-nowrap',
-        td: 'align-middle text-xs'
-      }"
+      :ui="tableUi({ tr: 'group/strategy-row' })"
       sticky
     >
       <template #empty>

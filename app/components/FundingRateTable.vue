@@ -41,14 +41,26 @@ const columns: TableColumn<FundingRate>[] = [
   {
     accessorKey: 'funding_interval',
     header: 'Funding Interval',
+    meta: {
+      class: {
+        th: 'text-right',
+        td: 'text-right'
+      }
+    },
     cell: ({ row }) => formatInterval(row.original.funding_interval)
   },
   {
     accessorKey: 'funding_rate',
     header: 'Funding Rate',
+    meta: {
+      class: {
+        th: 'text-right',
+        td: 'text-right'
+      }
+    },
     cell: ({ row }) => {
       const v = row.original.funding_rate
-      const className = v < 0 ? 'text-error' : v > 0 ? 'text-success' : 'text-muted'
+      const className = v < 0 ? 'text-pnl-down' : v > 0 ? 'text-pnl-up' : 'text-muted'
       return h('span', { class: `${className} tabular-nums` }, formatPercent(v))
     }
   }
@@ -61,6 +73,7 @@ const columns: TableColumn<FundingRate>[] = [
       :data="pagedRows"
       :columns="columns"
       :loading="loading"
+      :ui="tableUi()"
       sticky
     >
       <template #empty>
