@@ -129,7 +129,7 @@ export function accountRefKey(ref: AccountRef) {
 }
 
 export function accountRefLabel(ref: AccountRef) {
-  return `${ref.connector}.${ref.account_type}.${ref.account_user}.${ref.account_name}`
+  return `${ref.connector}.${ref.account_user}.${ref.account_name}.${ref.account_type}`
 }
 
 export function accountFeeTierLabel(ref: Pick<AccountFeeTier, 'connector' | 'account_user'>) {
@@ -146,7 +146,7 @@ export function transferSideLabel(transfer: AccountTransfer, side: 'from' | 'to'
     return 'External'
   }
 
-  return `${connector}.${accountType}.${accountUser}.${accountName}`
+  return `${connector}.${accountUser}.${accountName}.${accountType}`
 }
 
 export function uniqueSortedConnectors(connectors: string[]) {

@@ -63,7 +63,7 @@ function formatBalance(value: number) {
 }
 
 function formatAccount(row: AccountBalance) {
-  return `${row.connector} / ${row.account_type} / ${row.account_user} / ${row.account_name}`
+  return `${row.connector} / ${row.account_user} / ${row.account_name} / ${row.account_type}`
 }
 
 function getAccountStatus(row: AccountBalance): AccountStatus {
