@@ -18,7 +18,7 @@ export interface StrategyAccount extends AccountRef {
 
 export interface StrategySnapshot {
   snapshot_ts: string
-  total: number
+  total: number | null
   today: number | null
   this_week: number | null
   this_month: number | null

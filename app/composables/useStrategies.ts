@@ -29,7 +29,7 @@ type NewStrategyAccountRow = Omit<StrategyAccountRow, 'id'>
 type StrategySnapshotRow = {
   snapshot_ts: string
   strategy_id: number
-  total: number
+  total: number | null
   last_order_placed_at: string | null
   last_trade_filled_at: string | null
 }
@@ -153,7 +153,9 @@ const LatestStrategySnapshotRowSchema = z.object({
 const StrategySnapshotRowSchema = z.object({
   snapshot_ts: z.string().min(1),
   strategy_id: StrictInteger,
-  total: StrictNumber,
+  // Null when a collector run failed, which is distinct from a real zero balance.
+  // A missing or empty value is still rejected rather than treated as a failure.
+  total: StrictNumber.nullable(),
   last_order_placed_at: z.string().nullable(),
   last_trade_filled_at: z.string().nullable()
 })
@@ -280,6 +282,8 @@ function buildBaselineRows(rows: ParsedStrategySnapshotRow[]) {
   const baselines = new Map<number, ParsedStrategySnapshotRow>()
 
   for (const row of rows) {
+    // Skip failed collector runs so the period anchors on the first usable snapshot.
+    if (row.total === null) continue
     if (baselines.has(row.strategy_id)) continue
 
     baselines.set(row.strategy_id, row)
@@ -557,6 +561,9 @@ function deltaFromBaseline(
 ) {
   const baseline = baselines.get(row.strategy_id)
   if (!baseline) return null
+
+  // Guard explicitly: arithmetic would silently coerce a null total into a zero.
+  if (row.total === null || baseline.total === null) return null
 
   const transferFlow = transferFlows.get(row.strategy_id) ?? 0
   if (transferFlow === null) return null

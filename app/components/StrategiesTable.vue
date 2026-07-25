@@ -97,8 +97,10 @@ function valueClass(value: number) {
 function relativePnl(value: number, total: number | null | undefined, multiplier: number) {
   if (total === null || total === undefined) return null
 
+  // Reconstructed starting capital. Non-positive means it is missing or corrupt,
+  // so no ratio is shown rather than a meaningless one.
   const baseline = total - value
-  if (baseline === 0) return null
+  if (baseline <= 0) return null
 
   return value / baseline * multiplier
 }
