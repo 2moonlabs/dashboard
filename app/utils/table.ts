@@ -25,7 +25,7 @@ export function tableUi(extra: Partial<Record<TableSlot, string>> = {}) {
 /** Denser variant for tables nested inside an expanded row. */
 export function nestedTableUi() {
   return {
-    th: 'px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider text-dimmed whitespace-nowrap',
+    th: 'px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider text-muted whitespace-nowrap',
     td: 'px-3 py-1.5 text-xs text-highlighted whitespace-nowrap'
   }
 }

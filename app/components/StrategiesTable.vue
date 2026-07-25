@@ -160,10 +160,11 @@ function formatActivity(seconds: number) {
   return `${Math.floor(hours / 24)}d`
 }
 
-function orderAgeClass(seconds: number) {
+// Order recency escalates yellow -> orange amber, deliberately staying off red.
+function orderActivityClass(seconds: number) {
   if (seconds <= 10 * 60) return 'text-highlighted'
-  if (seconds <= 30 * 60) return 'text-warning'
-  return 'text-error'
+  if (seconds <= 30 * 60) return 'text-amber-300'
+  return 'text-amber-600'
 }
 
 function formatServer(row: StrategyWithAccounts) {
@@ -228,7 +229,7 @@ function activityLine(label: string, value: string | null | undefined, className
   const seconds = ageSeconds(value)
 
   return h('div', { class: 'grid grid-cols-[2.5rem_auto] items-baseline gap-2' }, [
-    h('span', { class: 'text-[10px] uppercase tracking-wide text-dimmed' }, label),
+    h('span', { class: 'text-[10px] uppercase tracking-wide text-muted' }, label),
     seconds === null
       ? placeholder()
       : h('span', {
@@ -245,7 +246,7 @@ function activityCell(row: StrategyWithAccounts) {
     activityLine(
       'Order',
       row.snapshot?.last_order_placed_at,
-      orderSeconds === null ? 'text-highlighted' : orderAgeClass(orderSeconds)
+      orderSeconds === null ? 'text-highlighted' : orderActivityClass(orderSeconds)
     ),
     activityLine('Trade', row.snapshot?.last_trade_filled_at, 'text-highlighted')
   ])

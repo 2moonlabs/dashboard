@@ -63,7 +63,7 @@ function numberCell(value: number | null) {
 
 function metricLine(label: string, value: number | null, formatter: (value: number) => string) {
   return h('div', { class: 'grid grid-cols-[3rem_auto] items-baseline gap-2' }, [
-    h('span', { class: 'text-[10px] uppercase tracking-wide text-dimmed' }, label),
+    h('span', { class: 'text-[10px] uppercase tracking-wide text-muted' }, label),
     value === null
       ? placeholder()
       : h('span', { class: 'tabular-nums text-[13px] text-highlighted' }, formatter(value))
