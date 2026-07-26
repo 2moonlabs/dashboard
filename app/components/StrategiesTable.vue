@@ -261,7 +261,7 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
     sortingFn: 'alphanumeric',
     sortUndefined: 'last',
     cell: ({ row }) => {
-      const tags = [`id:${row.original.id}`, ...strategyTags(row.original)]
+      const tags = strategyTags(row.original)
 
       return h('div', { class: 'space-y-1' }, [
         h('div', { class: 'relative min-w-0' }, [
@@ -288,15 +288,16 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
             }
           })
         ]),
-        h(
-          'div',
-          { class: 'flex flex-wrap gap-1' },
-          tags.map(tag => h(resolveComponent('UBadge'), {
+        h('div', { class: 'flex flex-wrap items-center gap-1' }, [
+          // Record id, deliberately not a badge: it is unique per row and not
+          // filterable, unlike the tags it sits next to.
+          h('span', { class: 'font-mono text-[10px] tabular-nums text-muted' }, `#${row.original.id}`),
+          ...tags.map(tag => h(resolveComponent('UBadge'), {
             color: 'neutral',
             variant: 'soft',
             size: 'sm'
           }, () => tag))
-        )
+        ])
       ])
     }
   },

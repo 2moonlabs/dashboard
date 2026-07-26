@@ -28,7 +28,7 @@ const columns: TableColumn<AccountTransfer>[] = [
   {
     accessorKey: 'id',
     header: 'ID',
-    cell: ({ row }) => h('span', { class: 'tabular-nums' }, row.original.id)
+    cell: ({ row }) => h('span', { class: 'tabular-nums' }, `#${row.original.id}`)
   },
   {
     accessorKey: 'ts',
