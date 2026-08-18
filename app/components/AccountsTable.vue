@@ -26,9 +26,10 @@ const statusDotClass: Record<AccountStatus, string> = {
   Idle: 'bg-neutral-300'
 }
 
-const total = computed(() =>
-  props.data.reduce((sum, account) => sum + (account.total ?? 0), 0)
-)
+const total = computed(() => props.data.reduce<number | null>(
+  (sum, account) => sum === null || account.total === null ? null : sum + account.total,
+  0
+))
 
 const portfolioTotal = computed(() => props.portfolioTotal ?? total.value)
 
@@ -53,7 +54,7 @@ function formatAccountTotal(value: number | null) {
 }
 
 function formatPortfolioShare(value: number | null) {
-  if (value === null || portfolioTotal.value <= 0) return '-'
+  if (value === null || portfolioTotal.value === null || portfolioTotal.value <= 0) return '-'
 
   return `${totalFormatter.format((value / portfolioTotal.value) * 100)}%`
 }
@@ -229,7 +230,7 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
           <td class="px-4 py-2 whitespace-nowrap" />
           <td class="px-4 py-2 whitespace-nowrap" />
           <td class="px-4 py-2 text-right whitespace-nowrap">
-            <span class="tabular-nums text-[13px] font-semibold text-highlighted">{{ formatCurrency(total) }}</span>
+            <span class="tabular-nums text-[13px] font-semibold text-highlighted">{{ total === null ? '-' : formatCurrency(total) }}</span>
           </td>
         </tr>
       </template>

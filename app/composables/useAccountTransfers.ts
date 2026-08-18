@@ -43,7 +43,7 @@ type AccountSnapshotRow = {
   account_user: string
   account_name: string
   account_type: string
-  total: number
+  total: number | null
 }
 
 type AccountSnapshotAssetRow = {
@@ -169,7 +169,7 @@ const LatestSnapshotRowSchema = z.object({
 
 const AccountSnapshotRowSchema = AccountRowSchema.extend({
   snapshot_ts: z.string().min(1),
-  total: StrictNumber
+  total: StrictNumber.nullable()
 })
 
 const AccountSnapshotRowsSchema = z.array(AccountSnapshotRowSchema)

@@ -5,14 +5,14 @@ const selectedConnector = ref('all')
 const selectedUser = ref('all')
 
 const {
-  data: feeTiers,
+  data: volumes,
   status,
   error,
-  refresh: refreshFeeTiers
-} = await useAccountFeeTiers()
+  refresh: refreshVolumes
+} = await useAccountVolumes()
 
 const loading = computed(() => status.value === 'pending')
-const rows = computed(() => feeTiers.value ?? [])
+const rows = computed(() => volumes.value ?? [])
 
 const connectorOptions = computed(() => {
   const connectors = uniqueSortedConnectors(rows.value.map(row => row.connector))
@@ -32,7 +32,7 @@ const userOptions = computed(() => {
   ]
 })
 
-const filteredFeeTiers = computed(() => {
+const filteredVolumes = computed(() => {
   return rows.value.filter((row) => {
     const connectorMatched = selectedConnector.value === 'all'
       || row.connector === selectedConnector.value
@@ -48,20 +48,7 @@ const filtersActive = computed(() =>
   || selectedUser.value !== 'all'
 )
 
-const snapshotTs = computed(() => {
-  let latestTs: string | null = null
-  let latestTime = Number.NEGATIVE_INFINITY
-
-  for (const row of rows.value) {
-    const timestamp = new Date(row.snapshot_ts).getTime()
-    if (!Number.isFinite(timestamp) || timestamp <= latestTime) continue
-
-    latestTime = timestamp
-    latestTs = row.snapshot_ts
-  }
-
-  return latestTs
-})
+const snapshotTs = computed(() => rows.value[0]?.snapshot_ts ?? null)
 
 const snapshotLabel = computed(() => {
   if (!snapshotTs.value) return 'No snapshot'
@@ -80,7 +67,7 @@ function resetFilters() {
     <template #actions>
       <AppRefreshButton
         :loading="loading"
-        @refresh="refreshFeeTiers"
+        @refresh="refreshVolumes"
       />
     </template>
 
@@ -110,7 +97,7 @@ function resetFilters() {
         </div>
         <div class="text-xs text-muted tabular-nums lg:text-right">
           <p>Snapshot {{ snapshotLabel }}</p>
-          <p>Showing {{ filteredFeeTiers.length }} of {{ rows.length }} accounts</p>
+          <p>Showing {{ filteredVolumes.length }} of {{ rows.length }} accounts</p>
         </div>
       </div>
     </template>
@@ -126,8 +113,8 @@ function resetFilters() {
           :description="String((error as Error)?.message ?? error)"
         />
 
-        <FeeTiersTable
-          :data="filteredFeeTiers"
+        <AccountVolumesTable
+          :data="filteredVolumes"
           :loading="loading"
         />
       </div>

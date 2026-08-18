@@ -17,7 +17,7 @@ export type Account = AccountRef
 
 export interface AccountSnapshot extends Account {
   snapshot_ts: string
-  total: number
+  total: number | null
 }
 
 export interface AccountSnapshotAsset extends AccountRef {
@@ -57,7 +57,7 @@ export interface AccountTransfer {
   note: string
 }
 
-export interface AccountFeeTier {
+export interface AccountVolume {
   connector: string
   account_user: string
   account_name: string
@@ -73,6 +73,14 @@ export interface AccountFeeTier {
   futures_tier_volume: number | null
   futures_next_tier_volume: number | null
 }
+
+export interface AccountVolumeHistoryPoint {
+  snapshot_ts: string
+  spot_volume_30d: number | null
+  futures_volume_30d: number | null
+}
+
+export type AccountVolumeRangeDays = 30 | 60 | 90
 
 export interface NewAccountTransferInput {
   ts: string
@@ -118,7 +126,7 @@ export function compareAccounts(a: Account, b: Account) {
     || a.account_type.localeCompare(b.account_type)
 }
 
-export function compareAccountFeeTiers(a: AccountFeeTier, b: AccountFeeTier) {
+export function compareAccountVolumes(a: AccountVolume, b: AccountVolume) {
   return compareConnectors(a.connector, b.connector)
     || a.account_user.localeCompare(b.account_user)
     || a.account_name.localeCompare(b.account_name)
@@ -132,8 +140,12 @@ export function accountRefLabel(ref: AccountRef) {
   return `${ref.connector}.${ref.account_user}.${ref.account_name}.${ref.account_type}`
 }
 
-export function accountFeeTierLabel(ref: Pick<AccountFeeTier, 'connector' | 'account_user'>) {
+export function accountVolumeLabel(ref: Pick<AccountVolume, 'connector' | 'account_user'>) {
   return `${ref.connector} / ${ref.account_user}`
+}
+
+export function accountVolumePath(ref: Pick<AccountVolume, 'connector' | 'account_user'>) {
+  return `/volumes/${encodeURIComponent(ref.connector)}-${encodeURIComponent(ref.account_user)}`
 }
 
 export function transferSideLabel(transfer: AccountTransfer, side: 'from' | 'to') {

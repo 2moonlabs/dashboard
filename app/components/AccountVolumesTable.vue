@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { AccountFeeTier } from '~/types/accounts'
-import { accountFeeTierLabel } from '~/types/accounts'
+import type { AccountVolume } from '~/types/accounts'
+import { accountVolumeLabel, accountVolumePath } from '~/types/accounts'
 
 defineProps<{
-  data: AccountFeeTier[]
+  data: AccountVolume[]
   loading?: boolean
 }>()
 
@@ -84,7 +84,7 @@ function tierCell(current: number | null, next: number | null) {
   ])
 }
 
-const columns: TableColumn<AccountFeeTier>[] = [
+const columns: TableColumn<AccountVolume>[] = [
   {
     id: 'account',
     header: 'Account',
@@ -93,7 +93,15 @@ const columns: TableColumn<AccountFeeTier>[] = [
         td: 'align-middle'
       }
     },
-    cell: ({ row }) => h('span', { class: 'font-mono text-xs text-highlighted' }, accountFeeTierLabel(row.original))
+    cell: ({ row }) => h(
+      resolveComponent('NuxtLink'),
+      {
+        'to': accountVolumePath(row.original),
+        'class': 'font-mono text-xs text-primary',
+        'aria-label': `View volume history for ${accountVolumeLabel(row.original)}`
+      },
+      () => accountVolumeLabel(row.original)
+    )
   },
   {
     accessorKey: 'spot_volume_30d',

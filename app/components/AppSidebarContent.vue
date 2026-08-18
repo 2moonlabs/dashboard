@@ -34,6 +34,7 @@ onMounted(() => {
 
 function isActive(path: string) {
   return route.path === path
+    || (path !== '/' && route.path.startsWith(`${path}/`))
 }
 
 function isFundingActive() {
