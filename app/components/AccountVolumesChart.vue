@@ -17,7 +17,7 @@ const cardRef = useTemplateRef<HTMLElement | null>('cardRef')
 const { width } = useElementSize(cardRef)
 const maxVisibleScatterPoints = 300
 const spotColor = 'var(--ui-primary)'
-const futuresColor = 'var(--ui-success)'
+const futuresColor = 'var(--ui-info)'
 const compactNumberFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   maximumFractionDigits: 2
@@ -75,7 +75,7 @@ const tooltipTemplate = (point: ChartPoint) => `<div>${formatUtcDateTime(point.t
             <span class="text-muted">Spot</span>
           </span>
           <span class="flex items-center gap-1.5">
-            <span class="size-2 rounded-full bg-success" />
+            <span class="size-2 rounded-full bg-info" />
             <span class="text-muted">Futures</span>
           </span>
         </div>
