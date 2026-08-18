@@ -25,6 +25,7 @@ type StrategyAccountRow = {
 }
 
 type NewStrategyAccountRow = Omit<StrategyAccountRow, 'id'>
+type NewStrategyAccountInputRow = Omit<NewStrategyAccountRow, 'strategy_id'>
 
 type StrategySnapshotRow = {
   snapshot_ts: string
@@ -100,7 +101,19 @@ interface StrategiesDatabase {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      insert_strategy: {
+        Args: {
+          p_strategy_name: string
+          p_server: string | null
+          p_url: string | null
+          p_tags: string[]
+          p_active: boolean
+          p_accounts: NewStrategyAccountInputRow[]
+        }
+        Returns: number
+      }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }
@@ -219,10 +232,6 @@ const UpdateStrategySchema = z.object({
 })
 
 const UpdateStrategyResultSchema = z.object({
-  id: StrictInteger
-})
-
-const StrategyIdSchema = z.object({
   id: StrictInteger
 })
 
@@ -587,13 +596,12 @@ function buildSnapshot(
   }
 }
 
-function buildStrategyAccountRows(input: NewStrategyInput, strategyId: number) {
+function buildStrategyAccountRows(input: NewStrategyInput) {
   const rows = input.accounts.flatMap((account) => {
     const assets = normalizeStrategyAssets(account.assets)
     const rowAssets: (string | null)[] = assets.length ? assets : [null]
 
     return rowAssets.map(asset => ({
-      strategy_id: strategyId,
       connector: account.connector,
       account_user: account.account_user,
       account_name: account.account_name,
@@ -867,30 +875,17 @@ export function useInsertStrategy() {
 
   return async (input: NewStrategyInput) => {
     const payload = NewStrategySchema.parse(input)
-    const { data: strategyData, error: strategyError } = await supabase
-      .from('strategies')
-      .insert({
-        strategy_name: payload.strategy_name,
-        server: nullableText(payload.server),
-        url: nullableText(payload.url),
-        tags: normalizeStrategyTags(payload.tags),
-        active: payload.active
-      })
-      .select('id')
-      .single()
+    const accountRows = buildStrategyAccountRows(payload)
+    const { error } = await supabase.rpc('insert_strategy', {
+      p_strategy_name: payload.strategy_name,
+      p_server: nullableText(payload.server),
+      p_url: nullableText(payload.url),
+      p_tags: normalizeStrategyTags(payload.tags),
+      p_active: payload.active,
+      p_accounts: accountRows
+    })
 
-    if (strategyError) throw strategyError
-
-    const strategy = StrategyIdSchema.parse(strategyData)
-    const accountRows = buildStrategyAccountRows(payload, strategy.id)
-    const { error: accountError } = await supabase
-      .from('strategy_accounts')
-      .insert(accountRows)
-
-    if (accountError) {
-      await supabase.from('strategies').delete().eq('id', strategy.id)
-      throw accountError
-    }
+    if (error) throw error
   }
 }
 
