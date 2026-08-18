@@ -3,7 +3,7 @@ import type { HeaderContext, SortingState } from '@tanstack/table-core'
 import type { TableColumn } from '@nuxt/ui'
 import type { AccountRef } from '~/types/accounts'
 import { accountRefKey, accountRefLabel } from '~/types/accounts'
-import type { StrategyAccount, StrategyWithAccounts } from '~/types/strategies'
+import type { StrategyAccount, StrategyServer, StrategyWithAccounts } from '~/types/strategies'
 
 const props = defineProps<{
   data: StrategyWithAccounts[]
@@ -29,6 +29,11 @@ watch(() => props.data, () => {
 interface AccountGroup {
   account: AccountRef
   assets: (string | null)[]
+}
+
+interface ServerGroup {
+  server: string
+  entries: StrategyServer[]
 }
 
 const valueFormatter = new Intl.NumberFormat('en-US', {
@@ -223,6 +228,33 @@ function accountsSortValue(accounts: StrategyAccount[]) {
   return sortText(labels.join(' '))
 }
 
+// A strategy can run several dashboards on one host, so the host is printed
+// once per group and its roles are listed under it.
+function groupedServers(servers: StrategyServer[]) {
+  const groups = new Map<string, ServerGroup>()
+
+  for (const server of servers) {
+    const group = groups.get(server.server) ?? {
+      server: server.server,
+      entries: []
+    }
+
+    group.entries.push(server)
+    groups.set(server.server, group)
+  }
+
+  return [...groups.values()]
+}
+
+function serversSortValue(servers: StrategyServer[]) {
+  const labels = groupedServers(servers).map(group => [
+    group.server,
+    ...group.entries.map(entry => entry.label)
+  ].join(' '))
+
+  return sortText(labels.join(' '))
+}
+
 function activityLine(label: string, value: string | null | undefined, className: string) {
   const seconds = ageSeconds(value)
 
@@ -392,33 +424,40 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
   },
   {
     id: 'server',
-    accessorFn: row => sortText(row.servers
-      .map(server => `${server.server} ${server.label}`)
-      .join(' ')),
+    accessorFn: row => serversSortValue(row.servers),
     header: sortableHeader('Server'),
     sortingFn: 'alphanumeric',
     sortUndefined: 'last',
     cell: ({ row }) => {
-      if (!row.original.servers.length) return placeholder()
+      const groups = groupedServers(row.original.servers)
+      if (!groups.length) return placeholder()
 
       return h(
         'div',
         { class: 'space-y-1' },
-        row.original.servers.map(server => h(
+        groups.map(group => h(
           'div',
-          { key: server.id, class: 'flex items-center gap-1.5 whitespace-nowrap' },
+          {
+            key: group.server,
+            // w-fit keeps the auto columns at content width: an auto track in a
+            // full-width grid would stretch into the cell's slack.
+            class: 'grid w-fit grid-cols-[auto_auto] items-baseline gap-x-1.5 gap-y-1 whitespace-nowrap'
+          },
           [
-            h('span', { class: 'text-muted' }, server.server),
-            h(
+            h('span', { class: 'text-muted' }, group.server),
+            // col-start-2 puts every role under the first one, leaving the host
+            // column blank from the second row on.
+            ...group.entries.map(server => h(
               'a',
               {
+                key: server.id,
                 href: server.url,
                 target: '_blank',
                 rel: 'noopener noreferrer',
-                class: 'text-highlighted no-underline'
+                class: 'col-start-2 text-highlighted no-underline'
               },
               server.label
-            )
+            ))
           ]
         ))
       )
