@@ -169,10 +169,6 @@ function orderActivityClass(seconds: number) {
   return 'text-amber-600'
 }
 
-function formatServer(row: StrategyWithAccounts) {
-  return row.server || row.url || '-'
-}
-
 function sortText(value: string | null | undefined) {
   const trimmed = value?.trim()
   return trimmed || undefined
@@ -396,23 +392,35 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
   },
   {
     id: 'server',
-    accessorFn: row => sortText(row.server || row.url),
+    accessorFn: row => sortText(row.servers
+      .map(server => `${server.server} ${server.label}`)
+      .join(' ')),
     header: sortableHeader('Server'),
     sortingFn: 'alphanumeric',
     sortUndefined: 'last',
     cell: ({ row }) => {
-      const label = formatServer(row.original)
-      if (!row.original.url) return label
+      if (!row.original.servers.length) return placeholder()
 
       return h(
-        'a',
-        {
-          href: row.original.url,
-          target: '_blank',
-          rel: 'noopener noreferrer',
-          class: 'text-highlighted underline-offset-2 hover:underline'
-        },
-        label
+        'div',
+        { class: 'space-y-1' },
+        row.original.servers.map(server => h(
+          'div',
+          { key: server.id, class: 'flex items-center gap-1.5 whitespace-nowrap' },
+          [
+            h('span', { class: 'text-muted' }, server.server),
+            h(
+              'a',
+              {
+                href: server.url,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                class: 'text-highlighted no-underline'
+              },
+              server.label
+            )
+          ]
+        ))
       )
     }
   }

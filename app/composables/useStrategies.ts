@@ -1,18 +1,35 @@
 import { z } from 'zod'
-import type { NewStrategyInput, Strategy, StrategyAccount, StrategySnapshot, StrategyWithAccounts, UpdateStrategyInput } from '~/types/strategies'
+import type {
+  NewStrategyInput,
+  NewStrategyServerInput,
+  Strategy,
+  StrategyAccount,
+  StrategyServer,
+  StrategySnapshot,
+  StrategyWithAccounts,
+  UpdateStrategyInput
+} from '~/types/strategies'
 import { normalizeStrategyAssets, normalizeStrategyTags, strategyAccountAssetKey } from '~/types/strategies'
 import { TRANSFER_TYPES, accountRefKey, compareAccounts, type AccountRef } from '~/types/accounts'
 
 type StrategyRow = {
   id: number
   strategy_name: string
-  server: string | null
-  url: string | null
   tags: string[]
   active: boolean
 }
 
 type NewStrategyRow = Omit<StrategyRow, 'id'>
+
+type StrategyServerRow = {
+  id: number
+  strategy_id: number
+  server: string
+  label: string
+  url: string
+}
+
+type NewStrategyServerRow = Omit<StrategyServerRow, 'id'>
 
 type StrategyAccountRow = {
   id: number
@@ -75,6 +92,12 @@ interface StrategiesDatabase {
         Update: Partial<NewStrategyRow>
         Relationships: []
       }
+      strategy_servers: {
+        Row: StrategyServerRow
+        Insert: NewStrategyServerRow
+        Update: Partial<NewStrategyServerRow>
+        Relationships: []
+      }
       strategy_accounts: {
         Row: StrategyAccountRow
         Insert: NewStrategyAccountRow
@@ -105,11 +128,10 @@ interface StrategiesDatabase {
       insert_strategy: {
         Args: {
           p_strategy_name: string
-          p_server: string | null
-          p_url: string | null
           p_tags: string[]
           p_active: boolean
           p_accounts: NewStrategyAccountInputRow[]
+          p_servers: NewStrategyServerInput[]
         }
         Returns: number
       }
@@ -139,13 +161,21 @@ const StrictNumber = z.preprocess(
 const StrategyRowSchema = z.object({
   id: StrictInteger,
   strategy_name: z.string().min(1),
-  server: z.string().nullable(),
-  url: z.string().nullable(),
   tags: z.array(z.string()),
   active: z.boolean()
 })
 
 const StrategyRowsSchema = z.array(StrategyRowSchema)
+
+const StrategyServerRowSchema = z.object({
+  id: StrictInteger,
+  strategy_id: StrictInteger,
+  server: z.string(),
+  label: z.string(),
+  url: z.string()
+})
+
+const StrategyServerRowsSchema = z.array(StrategyServerRowSchema)
 
 const StrategyAccountRowSchema = z.object({
   id: StrictInteger,
@@ -213,22 +243,26 @@ const NewStrategyAccountSchema = z.object({
   assets: z.array(z.string())
 })
 
+const NewStrategyServerSchema = z.object({
+  server: z.string().trim(),
+  label: z.string().trim(),
+  url: z.string().trim()
+})
+
 const NewStrategySchema = z.object({
   strategy_name: z.string().trim().min(1),
-  server: z.string().trim().nullable(),
-  url: z.string().trim().nullable(),
   tags: z.array(z.string()),
   active: z.boolean(),
-  accounts: z.array(NewStrategyAccountSchema).min(1)
+  accounts: z.array(NewStrategyAccountSchema).min(1),
+  servers: z.array(NewStrategyServerSchema)
 })
 
 const UpdateStrategySchema = z.object({
   id: StrictInteger,
   strategy_name: z.string().trim().min(1),
-  server: z.string().trim().nullable(),
-  url: z.string().trim().nullable(),
   active: z.boolean(),
-  tags: z.array(z.string())
+  tags: z.array(z.string()),
+  servers: z.array(NewStrategyServerSchema)
 })
 
 const UpdateStrategyResultSchema = z.object({
@@ -268,11 +302,6 @@ function compareStrategyAccounts(a: StrategyAccount, b: StrategyAccount) {
   return compareAccounts(a, b)
     || (a.asset ?? '').localeCompare(b.asset ?? '')
     || a.id - b.id
-}
-
-function nullableText(value: string | null) {
-  const text = value?.trim() ?? ''
-  return text || null
 }
 
 function utcStartOfDay(date: Date) {
@@ -650,14 +679,19 @@ export function useStrategies() {
       const [
         { data: strategyData, error: strategyError },
         { data: accountData, error: accountError },
+        { data: serverData, error: serverError },
         { data: latestData, error: latestError }
       ] = await Promise.all([
         supabase
           .from('strategies')
-          .select('id, strategy_name, server, url, tags, active'),
+          .select('id, strategy_name, tags, active'),
         supabase
           .from('strategy_accounts')
           .select('id, strategy_id, connector, account_user, account_name, account_type, asset'),
+        supabase
+          .from('strategy_servers')
+          .select('id, strategy_id, server, label, url')
+          .order('id', { ascending: true }),
         supabase
           .from('strategy_snapshots')
           .select('snapshot_ts')
@@ -668,12 +702,15 @@ export function useStrategies() {
 
       if (strategyError) throw strategyError
       if (accountError) throw accountError
+      if (serverError) throw serverError
       if (latestError) throw latestError
 
       const strategies = StrategyRowsSchema.parse(strategyData ?? []).sort(compareStrategies)
       const accounts = StrategyAccountRowsSchema.parse(accountData ?? [])
+      const servers = StrategyServerRowsSchema.parse(serverData ?? [])
       const latestSnapshot = LatestStrategySnapshotRowSchema.nullable().parse(latestData)
       const accountsByStrategy = new Map<number, StrategyAccount[]>()
+      const serversByStrategy = new Map<number, StrategyServer[]>()
 
       for (const account of accounts) {
         const rows = accountsByStrategy.get(account.strategy_id) ?? []
@@ -685,12 +722,19 @@ export function useStrategies() {
         rows.sort(compareStrategyAccounts)
       }
 
+      for (const server of servers) {
+        const rows = serversByStrategy.get(server.strategy_id) ?? []
+        rows.push(server)
+        serversByStrategy.set(server.strategy_id, rows)
+      }
+
       if (!strategies.length) return []
 
       if (!latestSnapshot) {
         return strategies.map(strategy => ({
           ...strategy,
           accounts: accountsByStrategy.get(strategy.id) ?? [],
+          servers: serversByStrategy.get(strategy.id) ?? [],
           snapshot: null
         }))
       }
@@ -758,6 +802,7 @@ export function useStrategies() {
         return strategies.map(strategy => ({
           ...strategy,
           accounts: accountsByStrategy.get(strategy.id) ?? [],
+          servers: serversByStrategy.get(strategy.id) ?? [],
           snapshot: null
         }))
       }
@@ -863,6 +908,7 @@ export function useStrategies() {
       return strategies.map(strategy => ({
         ...strategy,
         accounts: accountsByStrategy.get(strategy.id) ?? [],
+        servers: serversByStrategy.get(strategy.id) ?? [],
         snapshot: snapshotsByStrategy.get(strategy.id) ?? null
       }))
     },
@@ -878,11 +924,10 @@ export function useInsertStrategy() {
     const accountRows = buildStrategyAccountRows(payload)
     const { error } = await supabase.rpc('insert_strategy', {
       p_strategy_name: payload.strategy_name,
-      p_server: nullableText(payload.server),
-      p_url: nullableText(payload.url),
       p_tags: normalizeStrategyTags(payload.tags),
       p_active: payload.active,
-      p_accounts: accountRows
+      p_accounts: accountRows,
+      p_servers: payload.servers
     })
 
     if (error) throw error
@@ -898,8 +943,6 @@ export function useUpdateStrategy() {
       .from('strategies')
       .update({
         strategy_name: payload.strategy_name,
-        server: nullableText(payload.server),
-        url: nullableText(payload.url),
         active: payload.active,
         tags: normalizeStrategyTags(payload.tags)
       })
@@ -911,5 +954,23 @@ export function useUpdateStrategy() {
     if (!data) throw new Error('No strategy was updated. Check update permissions for strategies.')
 
     UpdateStrategyResultSchema.parse(data)
+
+    const { error: deleteServersError } = await supabase
+      .from('strategy_servers')
+      .delete()
+      .eq('strategy_id', payload.id)
+
+    if (deleteServersError) throw deleteServersError
+
+    if (payload.servers.length) {
+      const { error: insertServersError } = await supabase
+        .from('strategy_servers')
+        .insert(payload.servers.map(server => ({
+          strategy_id: payload.id,
+          ...server
+        })))
+
+      if (insertServersError) throw insertServersError
+    }
   }
 }

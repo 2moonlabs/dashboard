@@ -97,7 +97,7 @@ const columns: TableColumn<AccountVolume>[] = [
       resolveComponent('NuxtLink'),
       {
         'to': accountVolumePath(row.original),
-        'class': 'font-mono text-xs text-primary',
+        'class': 'font-mono text-xs text-highlighted',
         'aria-label': `View volume history for ${accountVolumeLabel(row.original)}`
       },
       () => accountVolumeLabel(row.original)

@@ -4,10 +4,16 @@ import { accountRefKey } from './accounts'
 export interface Strategy {
   id: number
   strategy_name: string
-  server: string | null
-  url: string | null
   tags: string[]
   active: boolean
+}
+
+export interface StrategyServer {
+  id: number
+  strategy_id: number
+  server: string
+  label: string
+  url: string
 }
 
 export interface StrategyAccount extends AccountRef {
@@ -28,6 +34,7 @@ export interface StrategySnapshot {
 
 export interface StrategyWithAccounts extends Strategy {
   accounts: StrategyAccount[]
+  servers: StrategyServer[]
   snapshot: StrategySnapshot | null
 }
 
@@ -35,22 +42,26 @@ export interface NewStrategyAccountInput extends AccountRef {
   assets: string[]
 }
 
+export interface NewStrategyServerInput {
+  server: string
+  label: string
+  url: string
+}
+
 export interface NewStrategyInput {
   strategy_name: string
-  server: string | null
-  url: string | null
   tags: string[]
   active: boolean
   accounts: NewStrategyAccountInput[]
+  servers: NewStrategyServerInput[]
 }
 
 export interface UpdateStrategyInput {
   id: number
   strategy_name: string
-  server: string | null
-  url: string | null
   active: boolean
   tags: string[]
+  servers: NewStrategyServerInput[]
 }
 
 export function normalizeStrategyTags(tags: string[]) {

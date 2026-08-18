@@ -12,7 +12,8 @@ import {
   normalizeStrategyTags,
   strategyAccountAssetKey,
   type NewStrategyInput,
-  type StrategyWithAccounts
+  type StrategyWithAccounts,
+  type UpdateStrategyInput
 } from '~/types/strategies'
 
 const toast = useToast()
@@ -144,12 +145,17 @@ const strategyFormAccountSchema = z.object({
   assets: z.array(z.string())
 })
 
+const strategyFormServerSchema = z.object({
+  server: z.string().trim().min(1, 'Server is required'),
+  label: z.string().trim().min(1, 'Label is required'),
+  url: z.string().trim().min(1, 'URL is required')
+})
+
 const formSchema = z.object({
   strategy_name: z.string().trim().min(1, 'Strategy name is required'),
-  server: z.string().optional(),
-  url: z.string().optional(),
   tags: z.array(z.string()),
-  accounts: z.array(strategyFormAccountSchema).min(1, 'At least one account is required')
+  accounts: z.array(strategyFormAccountSchema).min(1, 'At least one account is required'),
+  servers: z.array(strategyFormServerSchema)
 }).superRefine((value, ctx) => {
   const accountsByKey = new Map<string, { allAssets: boolean, assets: Set<string> }>()
 
@@ -211,10 +217,9 @@ const formSchema = z.object({
 
 const editFormSchema = z.object({
   strategy_name: z.string().trim().min(1, 'Strategy name is required'),
-  server: z.string(),
-  url: z.string(),
   active: z.boolean(),
-  tags: z.array(z.string())
+  tags: z.array(z.string()),
+  servers: z.array(strategyFormServerSchema)
 })
 
 type StrategyForm = z.output<typeof formSchema>
@@ -222,18 +227,16 @@ type EditForm = z.output<typeof editFormSchema>
 
 const form = reactive<StrategyForm>({
   strategy_name: '',
-  server: '',
-  url: '',
   tags: [],
-  accounts: []
+  accounts: [],
+  servers: []
 })
 
 const editForm = reactive<EditForm>({
   strategy_name: '',
-  server: '',
-  url: '',
   active: true,
-  tags: []
+  tags: [],
+  servers: []
 })
 
 function findAccount(key: string | undefined): Account | null {
@@ -246,19 +249,13 @@ function firstAccountKey() {
   return account ? accountRefKey(account) : ''
 }
 
-function nullIfEmpty(value: string | undefined) {
-  const text = value?.trim() ?? ''
-  return text || null
-}
-
 function resetForm() {
   const accountKey = firstAccountKey()
 
   form.strategy_name = ''
-  form.server = ''
-  form.url = ''
   form.tags = []
   form.accounts = accountKey ? [{ accountKey, assets: [] }] : []
+  form.servers = []
 }
 
 function openStrategyModal() {
@@ -288,13 +285,24 @@ function removeAccountBinding(index: number) {
   form.accounts.splice(index, 1)
 }
 
+function addServer(servers: StrategyForm['servers']) {
+  servers.push({ server: '', label: 'main', url: '' })
+}
+
+function removeServer(servers: StrategyForm['servers'], index: number) {
+  servers.splice(index, 1)
+}
+
 function openEditModal(strategy: StrategyWithAccounts) {
   selectedStrategy.value = strategy
   editForm.strategy_name = strategy.strategy_name
-  editForm.server = strategy.server ?? ''
-  editForm.url = strategy.url ?? ''
   editForm.active = strategy.active
   editForm.tags = [...strategy.tags]
+  editForm.servers = strategy.servers.map(server => ({
+    server: server.server,
+    label: server.label,
+    url: server.url
+  }))
   editModalOpen.value = true
 }
 
@@ -319,11 +327,10 @@ async function onSubmit(event: FormSubmitEvent<StrategyForm>) {
   try {
     const payload: NewStrategyInput = {
       strategy_name: event.data.strategy_name.trim(),
-      server: nullIfEmpty(event.data.server),
-      url: nullIfEmpty(event.data.url),
       tags: normalizeStrategyTags(event.data.tags),
       active: true,
-      accounts: buildAccountInputs(event.data.accounts)
+      accounts: buildAccountInputs(event.data.accounts),
+      servers: event.data.servers
     }
 
     await insertStrategy(payload)
@@ -348,14 +355,15 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
   editSaving.value = true
 
   try {
-    await updateStrategy({
+    const payload: UpdateStrategyInput = {
       id: selectedStrategy.value.id,
       strategy_name: event.data.strategy_name.trim(),
-      server: nullIfEmpty(event.data.server),
-      url: nullIfEmpty(event.data.url),
       active: event.data.active,
-      tags: normalizeStrategyTags(event.data.tags)
-    })
+      tags: normalizeStrategyTags(event.data.tags),
+      servers: event.data.servers
+    }
+
+    await updateStrategy(payload)
 
     await refreshStrategies()
     editModalOpen.value = false
@@ -481,28 +489,6 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
           />
         </UFormField>
 
-        <div class="grid gap-4 sm:grid-cols-2">
-          <UFormField
-            label="Server"
-            name="server"
-          >
-            <UInput
-              v-model="form.server"
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField
-            label="URL"
-            name="url"
-          >
-            <UInput
-              v-model="form.url"
-              class="w-full"
-            />
-          </UFormField>
-        </div>
-
         <UFormField
           label="Tags"
           name="tags"
@@ -584,6 +570,76 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
           </div>
         </div>
 
+        <div class="space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-sm font-medium text-highlighted">
+              Servers
+            </p>
+            <UButton
+              type="button"
+              icon="i-lucide-plus"
+              label="Add server"
+              variant="outline"
+              color="neutral"
+              size="sm"
+              :disabled="saving"
+              @click="addServer(form.servers)"
+            />
+          </div>
+
+          <div
+            v-for="(server, index) in form.servers"
+            :key="index"
+            class="rounded-lg border border-default p-3"
+          >
+            <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.75fr)_minmax(0,1.5fr)_auto] sm:items-start">
+              <UFormField
+                label="Server"
+                :name="`servers.${index}.server`"
+                required
+              >
+                <UInput
+                  v-model="server.server"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UFormField
+                label="Label"
+                :name="`servers.${index}.label`"
+                required
+              >
+                <UInput
+                  v-model="server.label"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UFormField
+                label="URL"
+                :name="`servers.${index}.url`"
+                required
+              >
+                <UInput
+                  v-model="server.url"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UButton
+                type="button"
+                icon="i-lucide-trash-2"
+                aria-label="Remove server"
+                variant="ghost"
+                color="neutral"
+                class="sm:mt-7"
+                :disabled="saving"
+                @click="removeServer(form.servers, index)"
+              />
+            </div>
+          </div>
+        </div>
+
         <div class="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
           <UButton
             type="button"
@@ -606,7 +662,7 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
   <UModal
     v-model:open="editModalOpen"
     :title="selectedStrategy ? `Edit ${selectedStrategy.strategy_name}` : 'Edit strategy'"
-    :ui="{ content: 'max-w-xl' }"
+    :ui="{ content: 'max-w-3xl' }"
   >
     <template #body>
       <UForm
@@ -652,25 +708,75 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
           />
         </UFormField>
 
-        <UFormField
-          label="Server"
-          name="server"
-        >
-          <UInput
-            v-model="editForm.server"
-            class="w-full"
-          />
-        </UFormField>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-sm font-medium text-highlighted">
+              Servers
+            </p>
+            <UButton
+              type="button"
+              icon="i-lucide-plus"
+              label="Add server"
+              variant="outline"
+              color="neutral"
+              size="sm"
+              :disabled="editSaving"
+              @click="addServer(editForm.servers)"
+            />
+          </div>
 
-        <UFormField
-          label="URL"
-          name="url"
-        >
-          <UInput
-            v-model="editForm.url"
-            class="w-full"
-          />
-        </UFormField>
+          <div
+            v-for="(server, index) in editForm.servers"
+            :key="index"
+            class="rounded-lg border border-default p-3"
+          >
+            <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.75fr)_minmax(0,1.5fr)_auto] sm:items-start">
+              <UFormField
+                label="Server"
+                :name="`servers.${index}.server`"
+                required
+              >
+                <UInput
+                  v-model="server.server"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UFormField
+                label="Label"
+                :name="`servers.${index}.label`"
+                required
+              >
+                <UInput
+                  v-model="server.label"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UFormField
+                label="URL"
+                :name="`servers.${index}.url`"
+                required
+              >
+                <UInput
+                  v-model="server.url"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UButton
+                type="button"
+                icon="i-lucide-trash-2"
+                aria-label="Remove server"
+                variant="ghost"
+                color="neutral"
+                class="sm:mt-7"
+                :disabled="editSaving"
+                @click="removeServer(editForm.servers, index)"
+              />
+            </div>
+          </div>
+        </div>
 
         <div class="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
           <UButton
