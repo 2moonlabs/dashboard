@@ -16,6 +16,7 @@ type ChartPoint = {
 const cardRef = useTemplateRef<HTMLElement | null>('cardRef')
 const { width } = useElementSize(cardRef)
 const maxVisibleScatterPoints = 300
+const maxRenderedPoints = 1000
 const spotColor = 'var(--ui-primary)'
 const futuresColor = 'var(--ui-info)'
 const compactNumberFormatter = new Intl.NumberFormat('en-US', {
@@ -37,11 +38,47 @@ const points = computed<ChartPoint[]>(() =>
     .sort((a, b) => a.time.getTime() - b.time.getTime())
 )
 
+function downsample(data: ChartPoint[]) {
+  if (data.length <= maxRenderedPoints) return data
+
+  const selected = new Set([0, data.length - 1])
+  const keys = ['spotVolume', 'futuresVolume'] as const
+  const bucketCount = Math.floor((maxRenderedPoints - 2) / (keys.length * 3))
+
+  for (let bucket = 0; bucket < bucketCount; bucket++) {
+    const start = Math.floor(bucket * data.length / bucketCount)
+    const end = Math.floor((bucket + 1) * data.length / bucketCount)
+
+    for (const key of keys) {
+      let min = -1
+      let max = -1
+      let missing = -1
+
+      for (let index = start; index < end; index++) {
+        const value = data[index]![key]
+        if (value === null) {
+          if (missing < 0) missing = index
+        } else {
+          if (min < 0 || value < data[min]![key]!) min = index
+          if (max < 0 || value > data[max]![key]!) max = index
+        }
+      }
+
+      if (min >= 0) selected.add(min)
+      if (max >= 0) selected.add(max)
+      if (missing >= 0) selected.add(missing)
+    }
+  }
+
+  return [...selected].sort((a, b) => a - b).map(index => data[index]!)
+}
+
+const chartPoints = computed(() => downsample(points.value))
 const latest = computed(() => points.value[points.value.length - 1])
 const hasChartData = computed(() => points.value.some(
   point => point.spotVolume !== null || point.futuresVolume !== null
 ))
-const showScatter = computed(() => points.value.length <= maxVisibleScatterPoints)
+const showScatter = computed(() => chartPoints.value.length <= maxVisibleScatterPoints)
 const x = (point: ChartPoint) => point.time.getTime()
 const spotY = (point: ChartPoint) => point.spotVolume ?? undefined
 const futuresY = (point: ChartPoint) => point.futuresVolume ?? undefined
@@ -96,7 +133,7 @@ const tooltipTemplate = (point: ChartPoint) => `<div>${formatUtcDateTime(point.t
       <ClientOnly>
         <VisXYContainer
           v-if="hasChartData"
-          :data="points"
+          :data="chartPoints"
           :padding="{ top: 24, right: 16, bottom: 8, left: 16 }"
           :width="width"
           aria-label="Rolling 30-day spot and futures volume history"
@@ -106,11 +143,13 @@ const tooltipTemplate = (point: ChartPoint) => `<div>${formatUtcDateTime(point.t
             :x="x"
             :y="spotY"
             :color="spotColor"
+            :duration="chartPoints.length < points.length ? 0 : undefined"
           />
           <VisLine
             :x="x"
             :y="futuresY"
             :color="futuresColor"
+            :duration="chartPoints.length < points.length ? 0 : undefined"
           />
           <VisScatter
             v-if="showScatter"
