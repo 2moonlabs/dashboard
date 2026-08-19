@@ -192,9 +192,16 @@ export function useAccountVolumeHistory(
   rangeDays: Ref<AccountVolumeRangeDays>
 ) {
   const supabase = useSupabaseClient<AccountVolumesDatabase>()
+  const historyKey = computed(() => [
+    'account-volume-history',
+    connector.value ?? '',
+    accountUser.value ?? '',
+    accountName.value ?? '',
+    rangeDays.value
+  ].join(':'))
 
   return useAsyncData<AccountVolumeHistoryPoint[]>(
-    'account-volume-history',
+    historyKey,
     async () => {
       const selectedConnector = connector.value
       const selectedAccountUser = accountUser.value
@@ -226,7 +233,11 @@ export function useAccountVolumeHistory(
       return rows
     },
     {
-      watch: [connector, accountUser, accountName, rangeDays],
+      // Switching account navigates to a new route, which remounts the page.
+      // Blocking that navigation on this query keeps the outgoing page mounted
+      // long enough to unmount underneath the open USelect portal and crash, so
+      // let the page mount first and fill the chart in behind its spinner.
+      lazy: true,
       default: () => []
     }
   )
