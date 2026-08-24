@@ -16,6 +16,22 @@ const emit = defineEmits<{
 
 const now = useState('strategy-table-now', () => Date.now())
 const sorting = ref<SortingState>([{ id: 'strategy_name', desc: false }])
+const showQuarter = ref(false)
+const showYear = ref(false)
+const optionalColumns = [
+  { id: 'quarterPnl', label: 'This quarter', shown: showQuarter },
+  { id: 'yearPnl', label: 'This year', shown: showYear }
+]
+const columnItems = computed(() => optionalColumns.map(column => ({
+  label: column.label,
+  type: 'checkbox' as const,
+  checked: column.shown.value,
+  onUpdateChecked: (checked: boolean) => {
+    column.shown.value = checked
+  },
+  // Keep the menu open so several columns can be toggled in one go.
+  onSelect: (event: Event) => event.preventDefault()
+})))
 const sortingOptions = {
   enableMultiSort: false,
   enableSortingRemoval: false,
@@ -49,6 +65,25 @@ function placeholder() {
   return h('span', { class: 'text-muted' }, '-')
 }
 
+// Sits inside the last header cell so the toggles ride along with the header
+// row instead of costing the table an extra row or column.
+function columnMenu() {
+  return h(resolveComponent('UDropdownMenu'), {
+    items: columnItems.value,
+    content: { align: 'end' },
+    ui: { content: 'min-w-40' }
+  }, () => h(resolveComponent('UButton'), {
+    'aria-label': 'Show or hide columns',
+    // Pulled into the cell padding so the glyph lines up with the column's
+    // right edge instead of sitting a full button-width inside it.
+    'class': '-mr-2.5',
+    'color': 'neutral',
+    'icon': 'i-lucide-ellipsis-vertical',
+    'size': 'xs',
+    'variant': 'ghost'
+  }))
+}
+
 // Missing snapshots are skipped rather than nulling the whole footer: the total
 // row sums whatever the visible rows actually report.
 function sumTotal() {
@@ -68,7 +103,7 @@ function sumTotal() {
 // period's delta (a baseline outside the fetch window, say) contributes to
 // neither side; one contributing a delta but no total leaves the cohort
 // baseline unknown, and the ratio is dropped rather than skewed.
-function sumPeriod(key: 'today' | 'this_week' | 'this_month' | 'this_quarter') {
+function sumPeriod(key: 'today' | 'this_week' | 'this_month' | 'this_quarter' | 'this_year') {
   let value: number | null = null
   let total: number | null = null
   let totalKnown = true
@@ -96,7 +131,8 @@ const totals = computed(() => ({
   today: sumPeriod('today'),
   thisWeek: sumPeriod('this_week'),
   thisMonth: sumPeriod('this_month'),
-  thisQuarter: sumPeriod('this_quarter')
+  thisQuarter: sumPeriod('this_quarter'),
+  thisYear: sumPeriod('this_year')
 }))
 
 // Functional components so the footer reuses the exact cell renderers below;
@@ -106,7 +142,8 @@ const totalCells = {
   today: () => pnlCell(totals.value.today.value, totals.value.today.total, 10000, 'bp'),
   thisWeek: () => pnlCell(totals.value.thisWeek.value, totals.value.thisWeek.total, 100, '%'),
   thisMonth: () => pnlCell(totals.value.thisMonth.value, totals.value.thisMonth.total, 100, '%'),
-  thisQuarter: () => pnlCell(totals.value.thisQuarter.value, totals.value.thisQuarter.total, 100, '%')
+  thisQuarter: () => pnlCell(totals.value.thisQuarter.value, totals.value.thisQuarter.total, 100, '%'),
+  thisYear: () => pnlCell(totals.value.thisYear.value, totals.value.thisYear.total, 100, '%')
 }
 
 function sortIcon(direction: false | 'asc' | 'desc') {
@@ -342,7 +379,7 @@ function activityCell(row: StrategyWithAccounts) {
   ])
 }
 
-const columns: TableColumn<StrategyWithAccounts>[] = [
+const allColumns: TableColumn<StrategyWithAccounts>[] = [
   {
     accessorKey: 'strategy_name',
     header: sortableHeader('Strategy'),
@@ -524,9 +561,25 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
     cell: ({ row }) => pnlCell(row.original.snapshot?.this_quarter, row.original.snapshot?.total, 100, '%')
   },
   {
+    id: 'yearPnl',
+    accessorFn: row => sortNumber(row.snapshot?.this_year),
+    header: sortableHeader('This year', 'right'),
+    sortUndefined: 'last',
+    meta: {
+      class: {
+        th: 'text-right',
+        td: 'text-right'
+      }
+    },
+    cell: ({ row }) => pnlCell(row.original.snapshot?.this_year, row.original.snapshot?.total, 100, '%')
+  },
+  {
     id: 'total',
     accessorFn: row => sortNumber(row.snapshot?.total),
-    header: sortableHeader('Total', 'right'),
+    header: context => h('div', { class: 'flex items-center justify-end gap-1' }, [
+      sortableHeader('Total', 'right')(context),
+      columnMenu()
+    ]),
     sortUndefined: 'last',
     meta: {
       class: {
@@ -537,6 +590,22 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
     cell: ({ row }) => valueCell(row.original.snapshot?.total)
   }
 ]
+
+// The long-horizon periods are opt-in, so the table drops their columns rather
+// than rendering them empty.
+const hiddenColumnIds = computed(() => new Set(
+  optionalColumns.filter(column => !column.shown.value).map(column => column.id)
+))
+
+const columns = computed(() => allColumns.filter(column => !hiddenColumnIds.value.has(column.id ?? '')))
+
+// Hiding the column the table is sorted by would leave the sort pinned to a
+// column that is no longer there, so fall back to the default order.
+watch(hiddenColumnIds, (hidden) => {
+  if (!sorting.value.some(entry => hidden.has(entry.id))) return
+
+  sorting.value = [{ id: 'strategy_name', desc: false }]
+})
 </script>
 
 <template>
@@ -573,8 +642,11 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
           <td class="px-4 py-2 text-right whitespace-nowrap">
             <component :is="totalCells.thisMonth" />
           </td>
-          <td class="px-4 py-2 text-right whitespace-nowrap">
+          <td v-if="showQuarter" class="px-4 py-2 text-right whitespace-nowrap">
             <component :is="totalCells.thisQuarter" />
+          </td>
+          <td v-if="showYear" class="px-4 py-2 text-right whitespace-nowrap">
+            <component :is="totalCells.thisYear" />
           </td>
           <td class="px-4 py-2 text-right whitespace-nowrap">
             <component :is="totalCells.total" />

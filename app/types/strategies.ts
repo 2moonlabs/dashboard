@@ -29,6 +29,7 @@ export interface StrategySnapshot {
   this_week: number | null
   this_month: number | null
   this_quarter: number | null
+  this_year: number | null
   last_order_placed_at: string | null
   last_trade_filled_at: string | null
 }

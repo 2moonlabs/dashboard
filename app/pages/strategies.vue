@@ -431,7 +431,7 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
             @click="resetFilters"
           />
         </div>
-        <div class="text-xs text-muted tabular-nums lg:text-right">
+        <div class="text-xs text-muted tabular-nums whitespace-nowrap lg:text-right">
           <p>Snapshot {{ snapshotLabel }}</p>
           <p>Showing {{ filteredStrategies.length }} of {{ strategies?.length ?? 0 }} strategies</p>
         </div>
