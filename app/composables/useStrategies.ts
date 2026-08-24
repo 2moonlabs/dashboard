@@ -272,7 +272,7 @@ const UpdateStrategyResultSchema = z.object({
 type ParsedStrategySnapshotRow = z.output<typeof StrategySnapshotRowSchema>
 type ParsedAccountTransferRow = z.output<typeof AccountTransferRowSchema>
 type ParsedAccountSnapshotAssetQuoteRow = z.output<typeof AccountSnapshotAssetQuoteRowSchema>
-type PeriodKey = 'today' | 'this_week' | 'this_month'
+type PeriodKey = 'today' | 'this_week' | 'this_month' | 'this_quarter'
 type StrategyAccountMembership = {
   allAssets: boolean
   assets: Set<string>
@@ -310,6 +310,10 @@ function utcStartOfDay(date: Date) {
 
 function utcStartOfMonth(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1))
+}
+
+function utcStartOfQuarter(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), Math.floor(date.getUTCMonth() / 3) * 3, 1))
 }
 
 function normalizeAsset(asset: string) {
@@ -564,7 +568,8 @@ function buildTransferFlows(
   const flows: Record<PeriodKey, Map<number, number | null>> = {
     today: new Map(),
     this_week: new Map(),
-    this_month: new Map()
+    this_month: new Map(),
+    this_quarter: new Map()
   }
 
   if (!Number.isFinite(latestTs)) return flows
@@ -620,6 +625,7 @@ function buildSnapshot(
     today: deltaFromBaseline(row, baselinesByPeriod.today, transferFlows.today),
     this_week: deltaFromBaseline(row, baselinesByPeriod.this_week, transferFlows.this_week),
     this_month: deltaFromBaseline(row, baselinesByPeriod.this_month, transferFlows.this_month),
+    this_quarter: deltaFromBaseline(row, baselinesByPeriod.this_quarter, transferFlows.this_quarter),
     last_order_placed_at: row.last_order_placed_at,
     last_trade_filled_at: row.last_trade_filled_at
   }
@@ -744,10 +750,12 @@ export function useStrategies() {
       const weekStart = new Date(todayStart)
       weekStart.setUTCDate(weekStart.getUTCDate() - 6)
       const monthStart = utcStartOfMonth(latestDate)
+      const quarterStart = utcStartOfQuarter(latestDate)
       const transferStart = new Date(Math.min(
         todayStart.getTime(),
         weekStart.getTime(),
-        monthStart.getTime()
+        monthStart.getTime(),
+        quarterStart.getTime()
       ))
       const strategyIds = strategies.map(strategy => strategy.id)
       const snapshotColumns = 'snapshot_ts, strategy_id, total, last_order_placed_at, last_trade_filled_at'
@@ -756,7 +764,8 @@ export function useStrategies() {
         { data: latestSnapshotData, error: latestSnapshotError },
         { data: todaySnapshotData, error: todaySnapshotError },
         { data: weekSnapshotData, error: weekSnapshotError },
-        { data: monthSnapshotData, error: monthSnapshotError }
+        { data: monthSnapshotData, error: monthSnapshotError },
+        { data: quarterSnapshotData, error: quarterSnapshotError }
       ] = await Promise.all([
         supabase
           .from('strategy_snapshots')
@@ -789,6 +798,15 @@ export function useStrategies() {
           .order('snapshot_ts', { ascending: true })
           .order('strategy_id', { ascending: true })
           .in('strategy_id', strategyIds)
+          .limit(1000),
+        supabase
+          .from('strategy_snapshots')
+          .select(snapshotColumns)
+          .gte('snapshot_ts', quarterStart.toISOString())
+          .lte('snapshot_ts', latestSnapshot.snapshot_ts)
+          .order('snapshot_ts', { ascending: true })
+          .order('strategy_id', { ascending: true })
+          .in('strategy_id', strategyIds)
           .limit(1000)
       ])
 
@@ -796,6 +814,7 @@ export function useStrategies() {
       if (todaySnapshotError) throw todaySnapshotError
       if (weekSnapshotError) throw weekSnapshotError
       if (monthSnapshotError) throw monthSnapshotError
+      if (quarterSnapshotError) throw quarterSnapshotError
 
       const latestSnapshots = StrategySnapshotRowsSchema.parse(latestSnapshotData ?? [])
       if (!latestSnapshots.length) {
@@ -810,7 +829,8 @@ export function useStrategies() {
       const baselinesByPeriod = {
         today: buildBaselineRows(StrategySnapshotRowsSchema.parse(todaySnapshotData ?? [])),
         this_week: buildBaselineRows(StrategySnapshotRowsSchema.parse(weekSnapshotData ?? [])),
-        this_month: buildBaselineRows(StrategySnapshotRowsSchema.parse(monthSnapshotData ?? []))
+        this_month: buildBaselineRows(StrategySnapshotRowsSchema.parse(monthSnapshotData ?? [])),
+        this_quarter: buildBaselineRows(StrategySnapshotRowsSchema.parse(quarterSnapshotData ?? []))
       }
 
       // Assumes the strategy transfer window stays below the UI fetch cap.

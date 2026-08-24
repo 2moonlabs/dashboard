@@ -49,6 +49,66 @@ function placeholder() {
   return h('span', { class: 'text-muted' }, '-')
 }
 
+// Missing snapshots are skipped rather than nulling the whole footer: the total
+// row sums whatever the visible rows actually report.
+function sumTotal() {
+  let sum: number | null = null
+
+  for (const strategy of props.data) {
+    const value = strategy.snapshot?.total
+    if (value === null || value === undefined) continue
+    sum = (sum ?? 0) + value
+  }
+
+  return sum
+}
+
+// Each period carries the total of exactly the strategies it summed, so the
+// footer ratio divides by the same cohort it adds up. A strategy missing this
+// period's delta (a baseline outside the fetch window, say) contributes to
+// neither side; one contributing a delta but no total leaves the cohort
+// baseline unknown, and the ratio is dropped rather than skewed.
+function sumPeriod(key: 'today' | 'this_week' | 'this_month' | 'this_quarter') {
+  let value: number | null = null
+  let total: number | null = null
+  let totalKnown = true
+
+  for (const strategy of props.data) {
+    const delta = strategy.snapshot?.[key]
+    if (delta === null || delta === undefined) continue
+
+    value = (value ?? 0) + delta
+
+    const strategyTotal = strategy.snapshot?.total
+    if (strategyTotal === null || strategyTotal === undefined) {
+      totalKnown = false
+      continue
+    }
+
+    total = (total ?? 0) + strategyTotal
+  }
+
+  return { value, total: totalKnown ? total : null }
+}
+
+const totals = computed(() => ({
+  total: sumTotal(),
+  today: sumPeriod('today'),
+  thisWeek: sumPeriod('this_week'),
+  thisMonth: sumPeriod('this_month'),
+  thisQuarter: sumPeriod('this_quarter')
+}))
+
+// Functional components so the footer reuses the exact cell renderers below;
+// the object is stable, so Vue does not remount them on every render.
+const totalCells = {
+  total: () => valueCell(totals.value.total),
+  today: () => pnlCell(totals.value.today.value, totals.value.today.total, 10000, 'bp'),
+  thisWeek: () => pnlCell(totals.value.thisWeek.value, totals.value.thisWeek.total, 100, '%'),
+  thisMonth: () => pnlCell(totals.value.thisMonth.value, totals.value.thisMonth.total, 100, '%'),
+  thisQuarter: () => pnlCell(totals.value.thisQuarter.value, totals.value.thisQuarter.total, 100, '%')
+}
+
 function sortIcon(direction: false | 'asc' | 'desc') {
   if (direction === 'asc') return 'i-lucide-arrow-up'
   if (direction === 'desc') return 'i-lucide-arrow-down'
@@ -330,58 +390,6 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
     }
   },
   {
-    id: 'total',
-    accessorFn: row => sortNumber(row.snapshot?.total),
-    header: sortableHeader('Total', 'right'),
-    sortUndefined: 'last',
-    meta: {
-      class: {
-        th: 'text-right',
-        td: 'text-right'
-      }
-    },
-    cell: ({ row }) => valueCell(row.original.snapshot?.total)
-  },
-  {
-    id: 'todayPnl',
-    accessorFn: row => sortNumber(row.snapshot?.today),
-    header: sortableHeader('Today', 'right'),
-    sortUndefined: 'last',
-    meta: {
-      class: {
-        th: 'text-right',
-        td: 'text-right'
-      }
-    },
-    cell: ({ row }) => pnlCell(row.original.snapshot?.today, row.original.snapshot?.total, 10000, 'bp')
-  },
-  {
-    id: 'weekPnl',
-    accessorFn: row => sortNumber(row.snapshot?.this_week),
-    header: sortableHeader('This week', 'right'),
-    sortUndefined: 'last',
-    meta: {
-      class: {
-        th: 'text-right',
-        td: 'text-right'
-      }
-    },
-    cell: ({ row }) => pnlCell(row.original.snapshot?.this_week, row.original.snapshot?.total, 1000, '‰')
-  },
-  {
-    id: 'monthPnl',
-    accessorFn: row => sortNumber(row.snapshot?.this_month),
-    header: sortableHeader('This month', 'right'),
-    sortUndefined: 'last',
-    meta: {
-      class: {
-        th: 'text-right',
-        td: 'text-right'
-      }
-    },
-    cell: ({ row }) => pnlCell(row.original.snapshot?.this_month, row.original.snapshot?.total, 100, '%')
-  },
-  {
     id: 'accounts',
     accessorFn: row => accountsSortValue(row.accounts),
     header: sortableHeader('Accounts'),
@@ -414,13 +422,6 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
         })
       )
     }
-  },
-  {
-    id: 'activity',
-    accessorFn: row => activitySortTime(row),
-    header: sortableHeader('Activity'),
-    sortUndefined: 'last',
-    cell: ({ row }) => activityCell(row.original)
   },
   {
     id: 'server',
@@ -462,6 +463,78 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
         ))
       )
     }
+  },
+  {
+    id: 'activity',
+    accessorFn: row => activitySortTime(row),
+    header: sortableHeader('Activity'),
+    sortUndefined: 'last',
+    cell: ({ row }) => activityCell(row.original)
+  },
+  {
+    id: 'todayPnl',
+    accessorFn: row => sortNumber(row.snapshot?.today),
+    header: sortableHeader('Today', 'right'),
+    sortUndefined: 'last',
+    meta: {
+      class: {
+        th: 'text-right',
+        td: 'text-right'
+      }
+    },
+    cell: ({ row }) => pnlCell(row.original.snapshot?.today, row.original.snapshot?.total, 10000, 'bp')
+  },
+  {
+    id: 'weekPnl',
+    accessorFn: row => sortNumber(row.snapshot?.this_week),
+    header: sortableHeader('This week', 'right'),
+    sortUndefined: 'last',
+    meta: {
+      class: {
+        th: 'text-right',
+        td: 'text-right'
+      }
+    },
+    cell: ({ row }) => pnlCell(row.original.snapshot?.this_week, row.original.snapshot?.total, 100, '%')
+  },
+  {
+    id: 'monthPnl',
+    accessorFn: row => sortNumber(row.snapshot?.this_month),
+    header: sortableHeader('This month', 'right'),
+    sortUndefined: 'last',
+    meta: {
+      class: {
+        th: 'text-right',
+        td: 'text-right'
+      }
+    },
+    cell: ({ row }) => pnlCell(row.original.snapshot?.this_month, row.original.snapshot?.total, 100, '%')
+  },
+  {
+    id: 'quarterPnl',
+    accessorFn: row => sortNumber(row.snapshot?.this_quarter),
+    header: sortableHeader('This quarter', 'right'),
+    sortUndefined: 'last',
+    meta: {
+      class: {
+        th: 'text-right',
+        td: 'text-right'
+      }
+    },
+    cell: ({ row }) => pnlCell(row.original.snapshot?.this_quarter, row.original.snapshot?.total, 100, '%')
+  },
+  {
+    id: 'total',
+    accessorFn: row => sortNumber(row.snapshot?.total),
+    header: sortableHeader('Total', 'right'),
+    sortUndefined: 'last',
+    meta: {
+      class: {
+        th: 'text-right',
+        td: 'text-right'
+      }
+    },
+    cell: ({ row }) => valueCell(row.original.snapshot?.total)
   }
 ]
 </script>
@@ -481,6 +554,32 @@ const columns: TableColumn<StrategyWithAccounts>[] = [
         <div class="flex items-center justify-center py-10 text-sm text-muted">
           No strategies
         </div>
+      </template>
+
+      <template #body-bottom>
+        <tr v-if="data.length" class="border-t-2 border-default bg-elevated/40">
+          <td class="px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted whitespace-nowrap">
+            Total
+          </td>
+          <td class="px-4 py-2 whitespace-nowrap" />
+          <td class="px-4 py-2 whitespace-nowrap" />
+          <td class="px-4 py-2 whitespace-nowrap" />
+          <td class="px-4 py-2 text-right whitespace-nowrap">
+            <component :is="totalCells.today" />
+          </td>
+          <td class="px-4 py-2 text-right whitespace-nowrap">
+            <component :is="totalCells.thisWeek" />
+          </td>
+          <td class="px-4 py-2 text-right whitespace-nowrap">
+            <component :is="totalCells.thisMonth" />
+          </td>
+          <td class="px-4 py-2 text-right whitespace-nowrap">
+            <component :is="totalCells.thisQuarter" />
+          </td>
+          <td class="px-4 py-2 text-right whitespace-nowrap">
+            <component :is="totalCells.total" />
+          </td>
+        </tr>
       </template>
     </UTable>
   </UCard>
