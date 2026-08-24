@@ -21,10 +21,8 @@ function routeParam(value: string | string[] | undefined) {
 
 const connector = computed(() => routeParam(route.params.connector))
 const accountUser = computed(() => routeParam(route.params.account_user))
-const initialConnector = connector.value
-const initialAccountUser = accountUser.value
-const selectedConnector = ref(initialConnector)
-const selectedUser = ref(initialAccountUser)
+const selectedConnector = ref(connector.value)
+const selectedUser = ref(accountUser.value)
 
 const {
   data: volumes,
@@ -42,10 +40,6 @@ const userOptions = computed(() => [...new Set(
     .filter(row => row.connector === selectedConnector.value)
     .map(row => row.account_user)
 )].sort().map(value => ({ label: value, value })))
-const filtersActive = computed(() =>
-  selectedConnector.value !== initialConnector
-  || selectedUser.value !== initialAccountUser
-)
 
 const {
   data: volumeHistory,
@@ -91,11 +85,6 @@ watch([selectedConnector, selectedUser], async ([nextConnector, nextAccountUser]
   await navigateTo(accountVolumePath(account))
 })
 
-function resetFilters() {
-  selectedConnector.value = initialConnector
-  selectedUser.value = initialAccountUser
-}
-
 async function refreshPageData() {
   await Promise.all([
     refreshVolumes(),
@@ -127,14 +116,6 @@ async function refreshPageData() {
             :items="userOptions"
             value-key="value"
             class="min-w-36"
-          />
-          <UButton
-            label="Reset filters"
-            variant="outline"
-            color="neutral"
-            class="w-fit"
-            :disabled="!filtersActive"
-            @click="resetFilters"
           />
         </div>
 
