@@ -75,6 +75,12 @@ const columns: TableColumn<AccountBalance>[] = [
   {
     id: 'expand',
     header: '',
+    meta: {
+      class: {
+        th: 'w-px pr-0',
+        td: 'w-px pr-0'
+      }
+    },
     cell: ({ row }) => {
       if (!row.getCanExpand()) return null
 
@@ -223,7 +229,7 @@ const assetColumns: TableColumn<AccountSnapshotAsset>[] = [
 
       <template #body-bottom>
         <tr v-if="data.length" class="border-t-2 border-default bg-elevated/40">
-          <td class="px-4 py-2 whitespace-nowrap" />
+          <td class="w-px py-2 pl-4 pr-0 whitespace-nowrap" />
           <td class="px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted whitespace-nowrap">
             Total
           </td>
