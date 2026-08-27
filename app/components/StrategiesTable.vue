@@ -265,10 +265,12 @@ function formatActivity(seconds: number) {
 }
 
 // Order recency escalates yellow -> orange amber, deliberately staying off red.
+const staleOrderClass = 'text-amber-600'
+
 function orderActivityClass(seconds: number) {
   if (seconds <= 10 * 60) return 'text-highlighted'
   if (seconds <= 30 * 60) return 'text-amber-300'
-  return 'text-amber-600'
+  return staleOrderClass
 }
 
 function sortText(value: string | null | undefined) {
@@ -352,13 +354,16 @@ function serversSortValue(servers: StrategyServer[]) {
   return sortText(labels.join(' '))
 }
 
-function activityLine(label: string, value: string | null | undefined, className: string) {
+// Wider than the usual placeholder so a silent strategy stands out in the column.
+const activityEmptyMark = '--'
+
+function activityLine(label: string, value: string | null | undefined, className: string, emptyClass = 'text-muted') {
   const seconds = ageSeconds(value)
 
   return h('div', { class: 'grid grid-cols-[2.5rem_auto] items-baseline gap-2' }, [
     h('span', { class: 'text-[10px] uppercase tracking-wide text-muted' }, label),
     seconds === null
-      ? placeholder()
+      ? h('span', { class: emptyClass }, activityEmptyMark)
       : h('span', {
           class: `${className} tabular-nums`,
           title: formatAge(seconds)
@@ -373,7 +378,9 @@ function activityCell(row: StrategyWithAccounts) {
     activityLine(
       'Order',
       row.snapshot?.last_order_placed_at,
-      orderSeconds === null ? 'text-highlighted' : orderActivityClass(orderSeconds)
+      orderSeconds === null ? 'text-highlighted' : orderActivityClass(orderSeconds),
+      // A missing order timestamp is a stall, not unknown data: flag it like a stale order.
+      staleOrderClass
     ),
     activityLine('Trade', row.snapshot?.last_trade_filled_at, 'text-highlighted')
   ])
@@ -434,7 +441,7 @@ const allColumns: TableColumn<StrategyWithAccounts>[] = [
     sortUndefined: 'last',
     cell: ({ row }) => {
       const groups = groupedAccounts(row.original.accounts)
-      if (!groups.length) return h('span', { class: 'text-muted' }, '-')
+      if (!groups.length) return placeholder()
 
       return h(
         'div',
