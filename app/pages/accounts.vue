@@ -100,38 +100,42 @@ const snapshotLabel = computed(() => {
 
     <template #toolbar>
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <USelect
-            v-model="selectedConnector"
-            :items="connectorOptions"
-            value-key="value"
-            class="min-w-44"
-          />
-          <USelect
-            v-model="selectedUser"
-            :items="userOptions"
-            value-key="value"
-            class="min-w-36"
-          />
-          <USelect
-            v-model="selectedType"
-            :items="typeOptions"
-            value-key="value"
-            class="min-w-36"
-          />
-          <UCheckbox
-            v-model="showSmallBalances"
-            label="Show small balances"
-            class="items-center"
-          />
-          <UButton
-            label="Reset filters"
-            variant="outline"
-            color="neutral"
-            class="w-fit"
-            :disabled="!filtersActive"
-            @click="resetFilters"
-          />
+        <div class="flex flex-col gap-3">
+          <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <USelect
+              v-model="selectedConnector"
+              :items="connectorOptions"
+              value-key="value"
+              class="min-w-44"
+            />
+            <USelect
+              v-model="selectedUser"
+              :items="userOptions"
+              value-key="value"
+              class="min-w-36"
+            />
+            <USelect
+              v-model="selectedType"
+              :items="typeOptions"
+              value-key="value"
+              class="min-w-36"
+            />
+            <UButton
+              label="Reset filters"
+              variant="outline"
+              color="neutral"
+              class="w-fit"
+              :disabled="!filtersActive"
+              @click="resetFilters"
+            />
+          </div>
+          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+            <UCheckbox
+              v-model="showSmallBalances"
+              label="Show small balances"
+              class="items-center"
+            />
+          </div>
         </div>
         <div class="text-xs text-muted tabular-nums lg:text-right">
           <p>Snapshot {{ snapshotLabel }}</p>

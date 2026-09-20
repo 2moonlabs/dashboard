@@ -22,6 +22,8 @@ const editModalOpen = ref(false)
 const saving = ref(false)
 const editSaving = ref(false)
 const includeInactiveStrategies = ref(false)
+const includeThisQuarter = ref(false)
+const includeThisYear = ref(false)
 const selectedConnector = ref('all')
 const selectedUser = ref('all')
 const selectedTag = ref('all')
@@ -108,6 +110,8 @@ const filtersActive = computed(() =>
   || selectedUser.value !== 'all'
   || selectedTag.value !== 'all'
   || includeInactiveStrategies.value
+  || includeThisQuarter.value
+  || includeThisYear.value
 )
 
 function resetFilters() {
@@ -115,6 +119,8 @@ function resetFilters() {
   selectedUser.value = 'all'
   selectedTag.value = 'all'
   includeInactiveStrategies.value = false
+  includeThisQuarter.value = false
+  includeThisYear.value = false
 }
 
 watch(tagOptions, (options) => {
@@ -398,38 +404,52 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
 
     <template #toolbar>
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <USelect
-            v-model="selectedConnector"
-            :items="connectorOptions"
-            value-key="value"
-            class="min-w-44"
-          />
-          <USelect
-            v-model="selectedUser"
-            :items="userOptions"
-            value-key="value"
-            class="min-w-36"
-          />
-          <USelect
-            v-model="selectedTag"
-            :items="tagOptions"
-            value-key="value"
-            class="min-w-40"
-          />
-          <UCheckbox
-            v-model="includeInactiveStrategies"
-            label="Include inactive strategies"
-            class="items-center"
-          />
-          <UButton
-            label="Reset filters"
-            variant="outline"
-            color="neutral"
-            class="w-fit"
-            :disabled="!filtersActive"
-            @click="resetFilters"
-          />
+        <div class="flex flex-col gap-3">
+          <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <USelect
+              v-model="selectedConnector"
+              :items="connectorOptions"
+              value-key="value"
+              class="min-w-44"
+            />
+            <USelect
+              v-model="selectedUser"
+              :items="userOptions"
+              value-key="value"
+              class="min-w-36"
+            />
+            <USelect
+              v-model="selectedTag"
+              :items="tagOptions"
+              value-key="value"
+              class="min-w-40"
+            />
+            <UButton
+              label="Reset filters"
+              variant="outline"
+              color="neutral"
+              class="w-fit"
+              :disabled="!filtersActive"
+              @click="resetFilters"
+            />
+          </div>
+          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+            <UCheckbox
+              v-model="includeInactiveStrategies"
+              label="Include inactive strategies"
+              class="items-center"
+            />
+            <UCheckbox
+              v-model="includeThisQuarter"
+              label="Include this quarter"
+              class="items-center"
+            />
+            <UCheckbox
+              v-model="includeThisYear"
+              label="Include this year"
+              class="items-center"
+            />
+          </div>
         </div>
         <div class="text-xs text-muted tabular-nums whitespace-nowrap lg:text-right">
           <p>Snapshot {{ snapshotLabel }}</p>
@@ -460,6 +480,8 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
         <StrategiesTable
           :data="filteredStrategies"
           :loading="loadingStrategies"
+          :show-quarter="includeThisQuarter"
+          :show-year="includeThisYear"
           @edit-strategy="openEditModal"
         />
       </div>

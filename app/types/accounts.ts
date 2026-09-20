@@ -1,7 +1,5 @@
 export const CONNECTORS = ['bitstamp', 'coinbase', 'kraken', 'gemini', 'gate', 'woox'] as const
 
-export type ConnectorId = typeof CONNECTORS[number]
-
 export const TRANSFER_TYPES = ['deposit', 'withdraw', 'internal_transfer'] as const
 
 export type TransferType = typeof TRANSFER_TYPES[number]
@@ -14,11 +12,6 @@ export interface AccountRef {
 }
 
 export type Account = AccountRef
-
-export interface AccountSnapshot extends Account {
-  snapshot_ts: string
-  total: number | null
-}
 
 export interface AccountSnapshotAsset extends AccountRef {
   snapshot_ts: string

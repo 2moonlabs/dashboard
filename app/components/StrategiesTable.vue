@@ -8,6 +8,8 @@ import type { StrategyAccount, StrategyServer, StrategyWithAccounts } from '~/ty
 const props = defineProps<{
   data: StrategyWithAccounts[]
   loading?: boolean
+  showQuarter?: boolean
+  showYear?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -16,22 +18,6 @@ const emit = defineEmits<{
 
 const now = useState('strategy-table-now', () => Date.now())
 const sorting = ref<SortingState>([{ id: 'strategy_name', desc: false }])
-const showQuarter = ref(false)
-const showYear = ref(false)
-const optionalColumns = [
-  { id: 'quarterPnl', label: 'This quarter', shown: showQuarter },
-  { id: 'yearPnl', label: 'This year', shown: showYear }
-]
-const columnItems = computed(() => optionalColumns.map(column => ({
-  label: column.label,
-  type: 'checkbox' as const,
-  checked: column.shown.value,
-  onUpdateChecked: (checked: boolean) => {
-    column.shown.value = checked
-  },
-  // Keep the menu open so several columns can be toggled in one go.
-  onSelect: (event: Event) => event.preventDefault()
-})))
 const sortingOptions = {
   enableMultiSort: false,
   enableSortingRemoval: false,
@@ -63,25 +49,6 @@ const ratioFormatter = new Intl.NumberFormat('en-US', {
 
 function placeholder() {
   return h('span', { class: 'text-muted' }, '-')
-}
-
-// Sits inside the last header cell so the toggles ride along with the header
-// row instead of costing the table an extra row or column.
-function columnMenu() {
-  return h(resolveComponent('UDropdownMenu'), {
-    items: columnItems.value,
-    content: { align: 'end' },
-    ui: { content: 'min-w-40' }
-  }, () => h(resolveComponent('UButton'), {
-    'aria-label': 'Show or hide columns',
-    // Pulled into the cell padding so the glyph lines up with the column's
-    // right edge instead of sitting a full button-width inside it.
-    'class': '-mr-2.5',
-    'color': 'neutral',
-    'icon': 'i-lucide-ellipsis-vertical',
-    'size': 'xs',
-    'variant': 'ghost'
-  }))
 }
 
 // Missing snapshots are skipped rather than nulling the whole footer: the total
@@ -583,10 +550,7 @@ const allColumns: TableColumn<StrategyWithAccounts>[] = [
   {
     id: 'total',
     accessorFn: row => sortNumber(row.snapshot?.total),
-    header: context => h('div', { class: 'flex items-center justify-end gap-1' }, [
-      sortableHeader('Total', 'right')(context),
-      columnMenu()
-    ]),
+    header: sortableHeader('Total', 'right'),
     sortUndefined: 'last',
     meta: {
       class: {
@@ -598,11 +562,16 @@ const allColumns: TableColumn<StrategyWithAccounts>[] = [
   }
 ]
 
-// The long-horizon periods are opt-in, so the table drops their columns rather
-// than rendering them empty.
-const hiddenColumnIds = computed(() => new Set(
-  optionalColumns.filter(column => !column.shown.value).map(column => column.id)
-))
+// The long-horizon periods are opt-in from the page's filter bar, so the table
+// drops their columns rather than rendering them empty.
+const hiddenColumnIds = computed(() => {
+  const hidden = new Set<string>()
+
+  if (!props.showQuarter) hidden.add('quarterPnl')
+  if (!props.showYear) hidden.add('yearPnl')
+
+  return hidden
+})
 
 const columns = computed(() => allColumns.filter(column => !hiddenColumnIds.value.has(column.id ?? '')))
 
