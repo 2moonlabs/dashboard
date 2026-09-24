@@ -313,6 +313,12 @@ function utcStartOfDay(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
 }
 
+// Weeks start on Monday; Date.UTC rolls a negative day back into the prior month.
+function utcStartOfWeek(date: Date) {
+  const daysSinceMonday = (date.getUTCDay() + 6) % 7
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - daysSinceMonday))
+}
+
 function utcStartOfMonth(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1))
 }
@@ -770,8 +776,7 @@ export function useStrategies() {
 
       const latestDate = new Date(latestSnapshot.snapshot_ts)
       const todayStart = utcStartOfDay(latestDate)
-      const weekStart = new Date(todayStart)
-      weekStart.setUTCDate(weekStart.getUTCDate() - 6)
+      const weekStart = utcStartOfWeek(latestDate)
       const monthStart = utcStartOfMonth(latestDate)
       const quarterStart = utcStartOfQuarter(latestDate)
       const yearStart = utcStartOfYear(latestDate)
