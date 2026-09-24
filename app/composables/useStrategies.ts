@@ -4,6 +4,7 @@ import type {
   NewStrategyServerInput,
   Strategy,
   StrategyAccount,
+  StrategyPeriodPnl,
   StrategyServer,
   StrategySnapshot,
   StrategyWithAccounts,
@@ -281,6 +282,10 @@ type QuotePoint = {
   ts: number
   quote: number
 }
+type TransferFlow = {
+  net: number
+  weighted: number
+}
 type QuoteLookupGroup = {
   account: AccountRef
   asset: string
@@ -549,15 +554,19 @@ function transferFlowForStrategy(
   return value === null ? null : -value
 }
 
-function addTransferFlow(flows: Map<number, number | null>, strategyId: number, value: number | null) {
-  if (flows.get(strategyId) === null) return
+function addTransferFlow(flows: Map<number, TransferFlow | null>, strategyId: number, value: number | null, weight: number) {
+  const flow = flows.get(strategyId)
+  if (flow === null) return
 
   if (value === null) {
     flows.set(strategyId, null)
     return
   }
 
-  flows.set(strategyId, (flows.get(strategyId) ?? 0) + value)
+  flows.set(strategyId, {
+    net: (flow?.net ?? 0) + value,
+    weighted: (flow?.weighted ?? 0) + value * weight
+  })
 }
 
 function buildTransferFlows(
@@ -569,7 +578,7 @@ function buildTransferFlows(
   latestSnapshotTs: string
 ) {
   const latestTs = new Date(latestSnapshotTs).getTime()
-  const flows: Record<PeriodKey, Map<number, number | null>> = {
+  const flows: Record<PeriodKey, Map<number, TransferFlow | null>> = {
     today: new Map(),
     this_week: new Map(),
     this_month: new Map(),
@@ -594,7 +603,9 @@ function buildTransferFlows(
         const baselineTs = new Date(baseline.snapshot_ts).getTime()
         if (!Number.isFinite(baselineTs) || transferTs <= baselineTs) continue
 
-        addTransferFlow(flows[period], strategyId, value)
+        // Weight by the share of the period the flow was invested. transferTs
+        // sits in (baselineTs, latestTs], so the span is never zero.
+        addTransferFlow(flows[period], strategyId, value, (latestTs - transferTs) / (latestTs - baselineTs))
       }
     }
   }
@@ -602,36 +613,42 @@ function buildTransferFlows(
   return flows
 }
 
-function deltaFromBaseline(
+function periodPnl(
   row: ParsedStrategySnapshotRow,
   baselines: Map<number, ParsedStrategySnapshotRow>,
-  transferFlows: Map<number, number | null>
-) {
+  transferFlows: Map<number, TransferFlow | null>
+): StrategyPeriodPnl | null {
   const baseline = baselines.get(row.strategy_id)
   if (!baseline) return null
 
   // Guard explicitly: arithmetic would silently coerce a null total into a zero.
   if (row.total === null || baseline.total === null) return null
 
-  const transferFlow = transferFlows.get(row.strategy_id) ?? 0
-  if (transferFlow === null) return null
+  // null marks a transfer that could not be priced; no entry means no transfers.
+  const flow = transferFlows.get(row.strategy_id)
+  if (flow === null) return null
 
-  return row.total - baseline.total - transferFlow
+  const { net, weighted } = flow ?? { net: 0, weighted: 0 }
+
+  return {
+    value: row.total - baseline.total - net,
+    basis: baseline.total + weighted
+  }
 }
 
 function buildSnapshot(
   row: ParsedStrategySnapshotRow,
   baselinesByPeriod: Record<PeriodKey, Map<number, ParsedStrategySnapshotRow>>,
-  transferFlows: Record<PeriodKey, Map<number, number | null>>
+  transferFlows: Record<PeriodKey, Map<number, TransferFlow | null>>
 ): StrategySnapshot {
   return {
     snapshot_ts: row.snapshot_ts,
     total: row.total,
-    today: deltaFromBaseline(row, baselinesByPeriod.today, transferFlows.today),
-    this_week: deltaFromBaseline(row, baselinesByPeriod.this_week, transferFlows.this_week),
-    this_month: deltaFromBaseline(row, baselinesByPeriod.this_month, transferFlows.this_month),
-    this_quarter: deltaFromBaseline(row, baselinesByPeriod.this_quarter, transferFlows.this_quarter),
-    this_year: deltaFromBaseline(row, baselinesByPeriod.this_year, transferFlows.this_year),
+    today: periodPnl(row, baselinesByPeriod.today, transferFlows.today),
+    this_week: periodPnl(row, baselinesByPeriod.this_week, transferFlows.this_week),
+    this_month: periodPnl(row, baselinesByPeriod.this_month, transferFlows.this_month),
+    this_quarter: periodPnl(row, baselinesByPeriod.this_quarter, transferFlows.this_quarter),
+    this_year: periodPnl(row, baselinesByPeriod.this_year, transferFlows.this_year),
     last_order_placed_at: row.last_order_placed_at,
     last_trade_filled_at: row.last_trade_filled_at
   }

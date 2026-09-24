@@ -22,14 +22,21 @@ export interface StrategyAccount extends AccountRef {
   asset: string | null
 }
 
+export interface StrategyPeriodPnl {
+  value: number
+  // Modified Dietz capital base: the baseline total plus each in-period
+  // transfer weighted by the share of the period it was invested.
+  basis: number
+}
+
 export interface StrategySnapshot {
   snapshot_ts: string
   total: number | null
-  today: number | null
-  this_week: number | null
-  this_month: number | null
-  this_quarter: number | null
-  this_year: number | null
+  today: StrategyPeriodPnl | null
+  this_week: StrategyPeriodPnl | null
+  this_month: StrategyPeriodPnl | null
+  this_quarter: StrategyPeriodPnl | null
+  this_year: StrategyPeriodPnl | null
   last_order_placed_at: string | null
   last_trade_filled_at: string | null
 }

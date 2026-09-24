@@ -3,7 +3,7 @@ import type { HeaderContext, SortingState } from '@tanstack/table-core'
 import type { TableColumn } from '@nuxt/ui'
 import type { AccountRef } from '~/types/accounts'
 import { accountRefKey, accountRefLabel } from '~/types/accounts'
-import type { StrategyAccount, StrategyServer, StrategyWithAccounts } from '~/types/strategies'
+import type { StrategyAccount, StrategyPeriodPnl, StrategyServer, StrategyWithAccounts } from '~/types/strategies'
 
 const props = defineProps<{
   data: StrategyWithAccounts[]
@@ -65,32 +65,17 @@ function sumTotal() {
   return sum
 }
 
-// Each period carries the total of exactly the strategies it summed, so the
-// footer ratio divides by the same cohort it adds up. A strategy missing this
-// period's delta (a baseline outside the fetch window, say) contributes to
-// neither side; one contributing a delta but no total leaves the cohort
-// baseline unknown, and the ratio is dropped rather than skewed.
-function sumPeriod(key: 'today' | 'this_week' | 'this_month' | 'this_quarter' | 'this_year') {
-  let value: number | null = null
-  let total: number | null = null
-  let totalKnown = true
+// PnL and capital base are summed over the same strategies, so the footer ratio
+// is the Modified Dietz return of that combined cohort. A strategy missing this
+// period (a baseline outside the fetch window, say) contributes to neither side.
+function sumPeriod(key: 'today' | 'this_week' | 'this_month' | 'this_quarter' | 'this_year'): StrategyPeriodPnl | null {
+  const pnls = props.data.flatMap(strategy => strategy.snapshot?.[key] ?? [])
+  if (!pnls.length) return null
 
-  for (const strategy of props.data) {
-    const delta = strategy.snapshot?.[key]
-    if (delta === null || delta === undefined) continue
-
-    value = (value ?? 0) + delta
-
-    const strategyTotal = strategy.snapshot?.total
-    if (strategyTotal === null || strategyTotal === undefined) {
-      totalKnown = false
-      continue
-    }
-
-    total = (total ?? 0) + strategyTotal
+  return {
+    value: pnls.reduce((sum, pnl) => sum + pnl.value, 0),
+    basis: pnls.reduce((sum, pnl) => sum + pnl.basis, 0)
   }
-
-  return { value, total: totalKnown ? total : null }
 }
 
 const totals = computed(() => ({
@@ -106,11 +91,11 @@ const totals = computed(() => ({
 // the object is stable, so Vue does not remount them on every render.
 const totalCells = {
   total: () => valueCell(totals.value.total),
-  today: () => pnlCell(totals.value.today.value, totals.value.today.total, 10000, 'bp'),
-  thisWeek: () => pnlCell(totals.value.thisWeek.value, totals.value.thisWeek.total, 100, '%'),
-  thisMonth: () => pnlCell(totals.value.thisMonth.value, totals.value.thisMonth.total, 100, '%'),
-  thisQuarter: () => pnlCell(totals.value.thisQuarter.value, totals.value.thisQuarter.total, 100, '%'),
-  thisYear: () => pnlCell(totals.value.thisYear.value, totals.value.thisYear.total, 100, '%')
+  today: () => pnlCell(totals.value.today, 10000, 'bp'),
+  thisWeek: () => pnlCell(totals.value.thisWeek, 100, '%'),
+  thisMonth: () => pnlCell(totals.value.thisMonth, 100, '%'),
+  thisQuarter: () => pnlCell(totals.value.thisQuarter, 100, '%'),
+  thisYear: () => pnlCell(totals.value.thisYear, 100, '%')
 }
 
 function sortIcon(direction: false | 'asc' | 'desc') {
@@ -163,27 +148,24 @@ function valueClass(value: number) {
   return 'text-muted'
 }
 
-function relativePnl(value: number, total: number | null | undefined, multiplier: number) {
-  if (total === null || total === undefined) return null
+function relativePnl(pnl: StrategyPeriodPnl, multiplier: number) {
+  // A non-positive capital base (early withdrawals exceeding the baseline, or a
+  // corrupt snapshot) has no meaningful ratio, so none is shown.
+  if (pnl.basis <= 0) return null
 
-  // Reconstructed starting capital. Non-positive means it is missing or corrupt,
-  // so no ratio is shown rather than a meaningless one.
-  const baseline = total - value
-  if (baseline <= 0) return null
-
-  return value / baseline * multiplier
+  return pnl.value / pnl.basis * multiplier
 }
 
-function pnlCell(value: number | null | undefined, total: number | null | undefined, multiplier: number, unit: string) {
-  if (value === null || value === undefined) return placeholder()
+function pnlCell(pnl: StrategyPeriodPnl | null | undefined, multiplier: number, unit: string) {
+  if (!pnl) return placeholder()
 
-  const ratio = relativePnl(value, total, multiplier)
+  const ratio = relativePnl(pnl, multiplier)
 
   return h('div', { class: 'flex flex-col items-end gap-0.5' }, [
     ratio === null
       ? placeholder()
-      : h('span', { class: `${valueClass(value)} tabular-nums text-[13px] font-medium` }, `${changeValue(ratio, ratioFormatter)} ${unit}`),
-    h('span', { class: 'tabular-nums text-[11px] text-muted' }, changeValue(value, valueFormatter, 0.005))
+      : h('span', { class: `${valueClass(pnl.value)} tabular-nums text-[13px] font-medium` }, `${changeValue(ratio, ratioFormatter)} ${unit}`),
+    h('span', { class: 'tabular-nums text-[11px] text-muted' }, changeValue(pnl.value, valueFormatter, 0.005))
   ])
 }
 
@@ -484,7 +466,7 @@ const allColumns: TableColumn<StrategyWithAccounts>[] = [
   },
   {
     id: 'todayPnl',
-    accessorFn: row => sortNumber(row.snapshot?.today),
+    accessorFn: row => sortNumber(row.snapshot?.today?.value),
     header: sortableHeader('Today', 'right'),
     sortUndefined: 'last',
     meta: {
@@ -493,11 +475,11 @@ const allColumns: TableColumn<StrategyWithAccounts>[] = [
         td: 'text-right'
       }
     },
-    cell: ({ row }) => pnlCell(row.original.snapshot?.today, row.original.snapshot?.total, 10000, 'bp')
+    cell: ({ row }) => pnlCell(row.original.snapshot?.today, 10000, 'bp')
   },
   {
     id: 'weekPnl',
-    accessorFn: row => sortNumber(row.snapshot?.this_week),
+    accessorFn: row => sortNumber(row.snapshot?.this_week?.value),
     header: sortableHeader('This week', 'right'),
     sortUndefined: 'last',
     meta: {
@@ -506,11 +488,11 @@ const allColumns: TableColumn<StrategyWithAccounts>[] = [
         td: 'text-right'
       }
     },
-    cell: ({ row }) => pnlCell(row.original.snapshot?.this_week, row.original.snapshot?.total, 100, '%')
+    cell: ({ row }) => pnlCell(row.original.snapshot?.this_week, 100, '%')
   },
   {
     id: 'monthPnl',
-    accessorFn: row => sortNumber(row.snapshot?.this_month),
+    accessorFn: row => sortNumber(row.snapshot?.this_month?.value),
     header: sortableHeader('This month', 'right'),
     sortUndefined: 'last',
     meta: {
@@ -519,11 +501,11 @@ const allColumns: TableColumn<StrategyWithAccounts>[] = [
         td: 'text-right'
       }
     },
-    cell: ({ row }) => pnlCell(row.original.snapshot?.this_month, row.original.snapshot?.total, 100, '%')
+    cell: ({ row }) => pnlCell(row.original.snapshot?.this_month, 100, '%')
   },
   {
     id: 'quarterPnl',
-    accessorFn: row => sortNumber(row.snapshot?.this_quarter),
+    accessorFn: row => sortNumber(row.snapshot?.this_quarter?.value),
     header: sortableHeader('This quarter', 'right'),
     sortUndefined: 'last',
     meta: {
@@ -532,11 +514,11 @@ const allColumns: TableColumn<StrategyWithAccounts>[] = [
         td: 'text-right'
       }
     },
-    cell: ({ row }) => pnlCell(row.original.snapshot?.this_quarter, row.original.snapshot?.total, 100, '%')
+    cell: ({ row }) => pnlCell(row.original.snapshot?.this_quarter, 100, '%')
   },
   {
     id: 'yearPnl',
-    accessorFn: row => sortNumber(row.snapshot?.this_year),
+    accessorFn: row => sortNumber(row.snapshot?.this_year?.value),
     header: sortableHeader('This year', 'right'),
     sortUndefined: 'last',
     meta: {
@@ -545,7 +527,7 @@ const allColumns: TableColumn<StrategyWithAccounts>[] = [
         td: 'text-right'
       }
     },
-    cell: ({ row }) => pnlCell(row.original.snapshot?.this_year, row.original.snapshot?.total, 100, '%')
+    cell: ({ row }) => pnlCell(row.original.snapshot?.this_year, 100, '%')
   },
   {
     id: 'total',
