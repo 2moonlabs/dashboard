@@ -383,9 +383,9 @@ const allColumns: TableColumn<StrategyWithAccounts>[] = [
     }
   },
   {
-    id: 'accounts',
+    id: 'account',
     accessorFn: row => accountsSortValue(row.accounts),
-    header: sortableHeader('Accounts'),
+    header: sortableHeader('Account'),
     sortingFn: 'alphanumeric',
     sortUndefined: 'last',
     cell: ({ row }) => {
