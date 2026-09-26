@@ -13,12 +13,10 @@ import {
   type TransferType
 } from '~/types/accounts'
 
-type TransferFilterType = TransferType | 'all'
-
 const toast = useToast()
-const selectedConnector = ref('all')
-const selectedAccount = ref('all')
-const selectedType = ref<TransferFilterType>('all')
+const selectedConnectors = ref<string[]>([])
+const selectedAccounts = ref<string[]>([])
+const selectedTypes = ref<TransferType[]>([])
 const transferModalOpen = ref(false)
 const saving = ref(false)
 
@@ -47,30 +45,17 @@ const connectorOptions = computed(() => {
     transfer.to_connector
   ]).filter((connector): connector is string => Boolean(connector))
 
-  const connectors = uniqueSortedConnectors([
+  return uniqueSortedConnectors([
     ...CONNECTOR_OPTIONS.map(option => option.value),
     ...(accounts.value ?? []).map(account => account.connector),
     ...transferConnectors
   ])
-
-  return [
-    { label: 'All connectors', value: 'all' },
-    ...connectors.map(connector => ({ label: connector, value: connector }))
-  ]
 })
 
-const accountOptions = computed(() => [
-  { label: 'All accounts', value: 'all' },
-  ...(accounts.value ?? []).map(account => ({
-    label: accountRefLabel(account),
-    value: accountRefKey(account)
-  }))
-])
-
-const transferTypeFilterOptions = [
-  { label: 'All types', value: 'all' },
-  ...TRANSFER_TYPE_OPTIONS
-]
+const accountOptions = computed(() => (accounts.value ?? []).map(account => ({
+  label: accountRefLabel(account),
+  value: accountRefKey(account)
+})))
 
 function transferAccountKey(transfer: {
   from_connector: string | null
@@ -97,32 +82,21 @@ function transferAccountKey(transfer: {
   })
 }
 
-const filteredTransfers = computed(() => {
-  return (transfers.value ?? []).filter((transfer) => {
-    const connectorMatched = selectedConnector.value === 'all'
-      || transfer.from_connector === selectedConnector.value
-      || transfer.to_connector === selectedConnector.value
-
-    const accountMatched = selectedAccount.value === 'all'
-      || transferAccountKey(transfer, 'from') === selectedAccount.value
-      || transferAccountKey(transfer, 'to') === selectedAccount.value
-
-    const typeMatched = selectedType.value === 'all'
-      || transfer.transfer_type === selectedType.value
-
-    return connectorMatched && accountMatched && typeMatched
-  })
-})
+const filteredTransfers = computed(() => (transfers.value ?? []).filter(transfer =>
+  matchesFilter(selectedConnectors.value, transfer.from_connector, transfer.to_connector)
+  && matchesFilter(selectedAccounts.value, transferAccountKey(transfer, 'from'), transferAccountKey(transfer, 'to'))
+  && matchesFilter(selectedTypes.value, transfer.transfer_type)
+))
 const filtersActive = computed(() =>
-  selectedConnector.value !== 'all'
-  || selectedAccount.value !== 'all'
-  || selectedType.value !== 'all'
+  selectedConnectors.value.length > 0
+  || selectedAccounts.value.length > 0
+  || selectedTypes.value.length > 0
 )
 
 function resetFilters() {
-  selectedConnector.value = 'all'
-  selectedAccount.value = 'all'
-  selectedType.value = 'all'
+  selectedConnectors.value = []
+  selectedAccounts.value = []
+  selectedTypes.value = []
 }
 
 const formSchema = z.object({
@@ -171,11 +145,6 @@ const form = reactive<TransferForm>({
   note: ''
 })
 
-const formAccountOptions = computed(() => (accounts.value ?? []).map(account => ({
-  label: accountRefLabel(account),
-  value: accountRefKey(account)
-})))
-
 const hasAccounts = computed(() => Boolean(accounts.value?.length))
 
 watch(() => form.transfer_type, (transferType) => {
@@ -198,19 +167,16 @@ function findAccount(key: string | undefined): Account | null {
 }
 
 function firstAccountForCurrentFilter() {
-  if (selectedConnector.value !== 'all') {
-    const matched = (accounts.value ?? []).find(account => account.connector === selectedConnector.value)
-    if (matched) return matched
-  }
+  const matched = (accounts.value ?? []).find(account => selectedConnectors.value.includes(account.connector))
 
-  return accounts.value?.[0] ?? null
+  return matched ?? accounts.value?.[0] ?? null
 }
 
 function resetForm() {
   const defaultAccount = firstAccountForCurrentFilter()
 
   form.ts = toDateTimeLocal(new Date())
-  form.transfer_type = selectedType.value === 'all' ? 'deposit' : selectedType.value
+  form.transfer_type = selectedTypes.value[0] ?? 'deposit'
   form.fromAccountKey = form.transfer_type === 'deposit' || !defaultAccount ? undefined : accountRefKey(defaultAccount)
   form.toAccountKey = form.transfer_type === 'withdraw' || !defaultAccount ? undefined : accountRefKey(defaultAccount)
   form.asset = 'USD'
@@ -292,24 +258,23 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
     <template #toolbar>
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <USelect
-            v-model="selectedConnector"
+          <AppFilterSelect
+            v-model="selectedConnectors"
             :items="connectorOptions"
-            value-key="value"
-            class="min-w-44"
+            placeholder="All connectors"
+            class="sm:w-44"
           />
-          <USelectMenu
-            v-model="selectedAccount"
+          <AppFilterSelect
+            v-model="selectedAccounts"
             :items="accountOptions"
-            value-key="value"
-            class="min-w-72"
-            searchable
+            placeholder="All accounts"
+            class="sm:w-72"
           />
-          <USelect
-            v-model="selectedType"
-            :items="transferTypeFilterOptions"
-            value-key="value"
-            class="min-w-44"
+          <AppFilterSelect
+            v-model="selectedTypes"
+            :items="TRANSFER_TYPE_OPTIONS"
+            placeholder="All types"
+            class="sm:w-44"
           />
           <UButton
             label="Reset filters"
@@ -401,7 +366,7 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
         >
           <USelectMenu
             v-model="form.fromAccountKey"
-            :items="formAccountOptions"
+            :items="accountOptions"
             value-key="value"
             placeholder="Select account"
             searchable
@@ -417,7 +382,7 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
         >
           <USelectMenu
             v-model="form.toAccountKey"
-            :items="formAccountOptions"
+            :items="accountOptions"
             value-key="value"
             placeholder="Select account"
             searchable

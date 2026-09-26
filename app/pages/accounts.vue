@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { uniqueSortedConnectors } from '~/types/accounts'
 
-const selectedConnector = ref('all')
-const selectedUser = ref('all')
-const selectedType = ref('all')
+const selectedConnectors = ref<string[]>([])
+const selectedUsers = ref<string[]>([])
+const selectedTypes = ref<string[]>([])
 const showSmallBalances = ref(false)
 
 const {
@@ -17,48 +17,24 @@ const loading = computed(() => status.value === 'pending')
 const balances = computed(() => accountBalances.value?.balances ?? [])
 const snapshotTs = computed(() => accountBalances.value?.snapshotTs ?? null)
 
-const connectorOptions = computed(() => {
-  const connectors = uniqueSortedConnectors(balances.value.map(account => account.connector))
+const connectorOptions = computed(() => uniqueSortedConnectors(balances.value.map(account => account.connector)))
 
-  return [
-    { label: 'All connectors', value: 'all' },
-    ...connectors.map(connector => ({ label: connector, value: connector }))
-  ]
-})
+const typeOptions = computed(() => [...new Set([
+  'spot',
+  'futures',
+  'margin',
+  ...balances.value.map(account => account.account_type)
+])].sort())
 
-const typeOptions = computed(() => {
-  const types = [...new Set([
-    'spot',
-    'futures',
-    'margin',
-    ...balances.value.map(account => account.account_type)
-  ])].sort()
-
-  return [
-    { label: 'All types', value: 'all' },
-    ...types.map(type => ({ label: type, value: type }))
-  ]
-})
-
-const userOptions = computed(() => {
-  const users = [...new Set(balances.value.map(account => account.account_user))].sort()
-
-  return [
-    { label: 'All users', value: 'all' },
-    ...users.map(user => ({ label: user, value: user }))
-  ]
-})
+const userOptions = computed(() => [...new Set(balances.value.map(account => account.account_user))].sort())
 
 const filteredBalances = computed(() => {
   return balances.value.flatMap((account) => {
-    const connectorMatched = selectedConnector.value === 'all'
-      || account.connector === selectedConnector.value
-    const userMatched = selectedUser.value === 'all'
-      || account.account_user === selectedUser.value
-    const typeMatched = selectedType.value === 'all'
-      || account.account_type === selectedType.value
+    const matched = matchesFilter(selectedConnectors.value, account.connector)
+      && matchesFilter(selectedUsers.value, account.account_user)
+      && matchesFilter(selectedTypes.value, account.account_type)
 
-    if (!connectorMatched || !userMatched || !typeMatched) return []
+    if (!matched) return []
     if (!showSmallBalances.value && account.total !== null && account.total < 1) return []
 
     return [{
@@ -70,16 +46,16 @@ const filteredBalances = computed(() => {
   })
 })
 const filtersActive = computed(() =>
-  selectedConnector.value !== 'all'
-  || selectedUser.value !== 'all'
-  || selectedType.value !== 'all'
+  selectedConnectors.value.length > 0
+  || selectedUsers.value.length > 0
+  || selectedTypes.value.length > 0
   || showSmallBalances.value
 )
 
 function resetFilters() {
-  selectedConnector.value = 'all'
-  selectedUser.value = 'all'
-  selectedType.value = 'all'
+  selectedConnectors.value = []
+  selectedUsers.value = []
+  selectedTypes.value = []
   showSmallBalances.value = false
 }
 
@@ -102,23 +78,23 @@ const snapshotLabel = computed(() => {
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div class="flex flex-col gap-3">
           <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <USelect
-              v-model="selectedConnector"
+            <AppFilterSelect
+              v-model="selectedConnectors"
               :items="connectorOptions"
-              value-key="value"
-              class="min-w-44"
+              placeholder="All connectors"
+              class="sm:w-44"
             />
-            <USelect
-              v-model="selectedUser"
+            <AppFilterSelect
+              v-model="selectedUsers"
               :items="userOptions"
-              value-key="value"
-              class="min-w-36"
+              placeholder="All users"
+              class="sm:w-36"
             />
-            <USelect
-              v-model="selectedType"
+            <AppFilterSelect
+              v-model="selectedTypes"
               :items="typeOptions"
-              value-key="value"
-              class="min-w-36"
+              placeholder="All types"
+              class="sm:w-36"
             />
             <UButton
               label="Reset filters"

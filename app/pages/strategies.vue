@@ -24,9 +24,9 @@ const editSaving = ref(false)
 const includeInactiveStrategies = ref(false)
 const includeThisQuarter = ref(false)
 const includeThisYear = ref(false)
-const selectedConnector = ref('all')
-const selectedUser = ref('all')
-const selectedTag = ref('all')
+const selectedConnectors = ref<string[]>([])
+const selectedUsers = ref<string[]>([])
+const selectedTags = ref<string[]>([])
 const selectedStrategy = ref<StrategyWithAccounts | null>(null)
 
 const {
@@ -52,47 +52,23 @@ const hasAccounts = computed(() => Boolean(accounts.value?.length))
 const statusFilteredStrategies = computed(() =>
   (strategies.value ?? []).filter(strategy => includeInactiveStrategies.value || strategy.active)
 )
-const connectorOptions = computed(() => {
-  const connectors = uniqueSortedConnectors(
-    statusFilteredStrategies.value.flatMap(strategy => strategy.accounts.map(account => account.connector))
-  )
-
-  return [
-    { label: 'All connectors', value: 'all' },
-    ...connectors.map(connector => ({ label: connector, value: connector }))
-  ]
-})
-const userOptions = computed(() => {
-  const users = [...new Set(
-    statusFilteredStrategies.value.flatMap(strategy => strategy.accounts.map(account => account.account_user))
-  )].sort()
-
-  return [
-    { label: 'All users', value: 'all' },
-    ...users.map(user => ({ label: user, value: user }))
-  ]
-})
-const tagOptions = computed(() => {
-  const tags = [...new Set(statusFilteredStrategies.value.flatMap(strategy => strategy.tags))].sort()
-
-  return [
-    { label: 'All tags', value: 'all' },
-    ...tags.map(tag => ({ label: tag, value: tag }))
-  ]
-})
+const connectorOptions = computed(() => uniqueSortedConnectors(
+  statusFilteredStrategies.value.flatMap(strategy => strategy.accounts.map(account => account.connector))
+))
+const userOptions = computed(() => [...new Set(
+  statusFilteredStrategies.value.flatMap(strategy => strategy.accounts.map(account => account.account_user))
+)].sort())
+const tagOptions = computed(() => [...new Set(statusFilteredStrategies.value.flatMap(strategy => strategy.tags))].sort())
 const filteredStrategies = computed(() => {
-  const accountFilterActive = selectedConnector.value !== 'all' || selectedUser.value !== 'all'
+  const accountFilterActive = selectedConnectors.value.length > 0 || selectedUsers.value.length > 0
 
   return statusFilteredStrategies.value.filter((strategy) => {
-    const tagMatched = selectedTag.value === 'all' || strategy.tags.includes(selectedTag.value)
-    const accountMatched = !accountFilterActive || strategy.accounts.some((account) => {
-      const connectorMatched = selectedConnector.value === 'all'
-        || account.connector === selectedConnector.value
-      const userMatched = selectedUser.value === 'all'
-        || account.account_user === selectedUser.value
-
-      return connectorMatched && userMatched
-    })
+    const tagMatched = matchesFilter(selectedTags.value, ...strategy.tags)
+    // Connector and user must match on the same account, not across two of them.
+    const accountMatched = !accountFilterActive || strategy.accounts.some(account =>
+      matchesFilter(selectedConnectors.value, account.connector)
+      && matchesFilter(selectedUsers.value, account.account_user)
+    )
 
     return tagMatched && accountMatched
   })
@@ -106,40 +82,22 @@ const snapshotLabel = computed(() => {
   return `${new Date(snapshotTs.value).toISOString().slice(0, 19).replace('T', ' ')} UTC`
 })
 const filtersActive = computed(() =>
-  selectedConnector.value !== 'all'
-  || selectedUser.value !== 'all'
-  || selectedTag.value !== 'all'
+  selectedConnectors.value.length > 0
+  || selectedUsers.value.length > 0
+  || selectedTags.value.length > 0
   || includeInactiveStrategies.value
   || includeThisQuarter.value
   || includeThisYear.value
 )
 
 function resetFilters() {
-  selectedConnector.value = 'all'
-  selectedUser.value = 'all'
-  selectedTag.value = 'all'
+  selectedConnectors.value = []
+  selectedUsers.value = []
+  selectedTags.value = []
   includeInactiveStrategies.value = false
   includeThisQuarter.value = false
   includeThisYear.value = false
 }
-
-watch(tagOptions, (options) => {
-  if (!options.some(option => option.value === selectedTag.value)) {
-    selectedTag.value = 'all'
-  }
-})
-
-watch(connectorOptions, (options) => {
-  if (!options.some(option => option.value === selectedConnector.value)) {
-    selectedConnector.value = 'all'
-  }
-})
-
-watch(userOptions, (options) => {
-  if (!options.some(option => option.value === selectedUser.value)) {
-    selectedUser.value = 'all'
-  }
-})
 
 const accountOptions = computed(() => (accounts.value ?? []).map(account => ({
   label: accountRefLabel(account),
@@ -406,23 +364,23 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div class="flex flex-col gap-3">
           <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <USelect
-              v-model="selectedConnector"
+            <AppFilterSelect
+              v-model="selectedConnectors"
               :items="connectorOptions"
-              value-key="value"
-              class="min-w-44"
+              placeholder="All connectors"
+              class="sm:w-44"
             />
-            <USelect
-              v-model="selectedUser"
+            <AppFilterSelect
+              v-model="selectedUsers"
               :items="userOptions"
-              value-key="value"
-              class="min-w-36"
+              placeholder="All users"
+              class="sm:w-36"
             />
-            <USelect
-              v-model="selectedTag"
+            <AppFilterSelect
+              v-model="selectedTags"
               :items="tagOptions"
-              value-key="value"
-              class="min-w-40"
+              placeholder="All tags"
+              class="sm:w-40"
             />
             <UButton
               label="Reset filters"

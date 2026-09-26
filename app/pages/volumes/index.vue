@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { uniqueSortedConnectors } from '~/types/accounts'
 
-const selectedConnector = ref('all')
-const selectedUser = ref('all')
+const selectedConnectors = ref<string[]>([])
+const selectedUsers = ref<string[]>([])
 
 const {
   data: volumes,
@@ -14,38 +14,18 @@ const {
 const loading = computed(() => status.value === 'pending')
 const rows = computed(() => volumes.value ?? [])
 
-const connectorOptions = computed(() => {
-  const connectors = uniqueSortedConnectors(rows.value.map(row => row.connector))
+const connectorOptions = computed(() => uniqueSortedConnectors(rows.value.map(row => row.connector)))
 
-  return [
-    { label: 'All connectors', value: 'all' },
-    ...connectors.map(connector => ({ label: connector, value: connector }))
-  ]
-})
+const userOptions = computed(() => [...new Set(rows.value.map(row => row.account_user))].sort())
 
-const userOptions = computed(() => {
-  const users = [...new Set(rows.value.map(row => row.account_user))].sort()
-
-  return [
-    { label: 'All users', value: 'all' },
-    ...users.map(user => ({ label: user, value: user }))
-  ]
-})
-
-const filteredVolumes = computed(() => {
-  return rows.value.filter((row) => {
-    const connectorMatched = selectedConnector.value === 'all'
-      || row.connector === selectedConnector.value
-    const userMatched = selectedUser.value === 'all'
-      || row.account_user === selectedUser.value
-
-    return connectorMatched && userMatched
-  })
-})
+const filteredVolumes = computed(() => rows.value.filter(row =>
+  matchesFilter(selectedConnectors.value, row.connector)
+  && matchesFilter(selectedUsers.value, row.account_user)
+))
 
 const filtersActive = computed(() =>
-  selectedConnector.value !== 'all'
-  || selectedUser.value !== 'all'
+  selectedConnectors.value.length > 0
+  || selectedUsers.value.length > 0
 )
 
 const snapshotTs = computed(() => rows.value[0]?.snapshot_ts ?? null)
@@ -57,8 +37,8 @@ const snapshotLabel = computed(() => {
 })
 
 function resetFilters() {
-  selectedConnector.value = 'all'
-  selectedUser.value = 'all'
+  selectedConnectors.value = []
+  selectedUsers.value = []
 }
 </script>
 
@@ -74,17 +54,17 @@ function resetFilters() {
     <template #toolbar>
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <USelect
-            v-model="selectedConnector"
+          <AppFilterSelect
+            v-model="selectedConnectors"
             :items="connectorOptions"
-            value-key="value"
-            class="min-w-44"
+            placeholder="All connectors"
+            class="sm:w-44"
           />
-          <USelect
-            v-model="selectedUser"
+          <AppFilterSelect
+            v-model="selectedUsers"
             :items="userOptions"
-            value-key="value"
-            class="min-w-36"
+            placeholder="All users"
+            class="sm:w-36"
           />
           <UButton
             label="Reset filters"
