@@ -5,6 +5,13 @@ import {
   type AccountVolumeRangeDays
 } from '~/types/accounts'
 
+// A fixed key keeps this page mounted across account switches: the route params
+// feed the selects and the history query, so only the data changes. Remounting
+// here tore the page down under the still-closing USelect on touch devices.
+definePageMeta({
+  key: 'volume-history'
+})
+
 const route = useRoute()
 const accountName = ref('main')
 const historyRangeDays = ref<AccountVolumeRangeDays>(30)

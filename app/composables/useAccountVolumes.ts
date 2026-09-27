@@ -233,10 +233,7 @@ export function useAccountVolumeHistory(
       return rows
     },
     {
-      // Switching account navigates to a new route, which remounts the page.
-      // Blocking that navigation on this query keeps the outgoing page mounted
-      // long enough to unmount underneath the open USelect portal and crash, so
-      // let the page mount first and fill the chart in behind its spinner.
+      // Let the page render first and fill the chart in behind its spinner.
       lazy: true,
       default: () => []
     }

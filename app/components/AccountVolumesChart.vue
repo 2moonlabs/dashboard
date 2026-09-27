@@ -13,8 +13,6 @@ type ChartPoint = {
   futuresVolume: number | null
 }
 
-const cardRef = useTemplateRef<HTMLElement | null>('cardRef')
-const { width } = useElementSize(cardRef)
 const maxVisibleScatterPoints = 300
 const maxRenderedPoints = 1000
 const spotColor = 'var(--ui-primary)'
@@ -103,7 +101,7 @@ const tooltipTemplate = (point: ChartPoint) => `<div>${formatUtcDateTime(point.t
 </script>
 
 <template>
-  <UCard ref="cardRef" :ui="{ root: 'overflow-visible', header: 'p-4!', body: 'px-0! pt-0! pb-3!' }">
+  <UCard :ui="{ root: 'overflow-visible', header: 'p-4!', body: 'px-0! pt-0! pb-3!' }">
     <template #header>
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
@@ -135,7 +133,6 @@ const tooltipTemplate = (point: ChartPoint) => `<div>${formatUtcDateTime(point.t
           v-if="hasChartData"
           :data="chartPoints"
           :padding="{ top: 24, right: 16, bottom: 8, left: 16 }"
-          :width="width"
           aria-label="Rolling 30-day spot and futures volume history"
           class="h-96"
         >
