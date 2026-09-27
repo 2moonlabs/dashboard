@@ -232,10 +232,8 @@ export function useAccountVolumeHistory(
 
       return rows
     },
-    {
-      // Let the page render first and fill the chart in behind its spinner.
-      lazy: true,
-      default: () => []
-    }
+    // Not lazy: arriving from the list waits for the history, so the chart is
+    // created with its data, like a full page load, instead of later via v-if.
+    { default: () => [] }
   )
 }
