@@ -45,28 +45,33 @@ const filteredBalances = computed(() => {
     }]
   })
 })
+// Reset covers the dropdowns only; the checkbox is a view toggle the user keeps.
 const filtersActive = computed(() =>
   selectedConnectors.value.length > 0
   || selectedUsers.value.length > 0
   || selectedTypes.value.length > 0
-  || showSmallBalances.value
 )
 
 function resetFilters() {
   selectedConnectors.value = []
   selectedUsers.value = []
   selectedTypes.value = []
-  showSmallBalances.value = false
 }
 
 const snapshotLabel = computed(() => {
   if (!snapshotTs.value) return 'No snapshot'
-  return `${new Date(snapshotTs.value).toISOString().slice(0, 19).replace('T', ' ')} UTC`
+  return `Snapshot ${new Date(snapshotTs.value).toISOString().slice(0, 19).replace('T', ' ')} UTC`
 })
+const summary = computed(() =>
+  `${snapshotLabel.value} · Showing ${filteredBalances.value.length} of ${balances.value.length} accounts`
+)
 </script>
 
 <template>
-  <AppPage title="Accounts">
+  <AppPage
+    title="Accounts"
+    :description="summary"
+  >
     <template #actions>
       <AppRefreshButton
         :loading="loading"
@@ -75,49 +80,38 @@ const snapshotLabel = computed(() => {
     </template>
 
     <template #toolbar>
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex flex-col gap-3">
-          <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <AppFilterSelect
-              v-model="selectedConnectors"
-              :items="connectorOptions"
-              placeholder="All connectors"
-              class="sm:w-44"
-            />
-            <AppFilterSelect
-              v-model="selectedUsers"
-              :items="userOptions"
-              placeholder="All users"
-              class="sm:w-36"
-            />
-            <AppFilterSelect
-              v-model="selectedTypes"
-              :items="typeOptions"
-              placeholder="All types"
-              class="sm:w-36"
-            />
-            <UButton
-              label="Reset filters"
-              variant="outline"
-              color="neutral"
-              class="w-fit"
-              :disabled="!filtersActive"
-              @click="resetFilters"
-            />
-          </div>
-          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-            <UCheckbox
-              v-model="showSmallBalances"
-              label="Show small balances"
-              class="items-center"
-            />
-          </div>
-        </div>
-        <div class="text-xs text-muted tabular-nums lg:text-right">
-          <p>Snapshot {{ snapshotLabel }}</p>
-          <p>Showing {{ filteredBalances.length }} of {{ balances.length }} accounts</p>
-        </div>
-      </div>
+      <AppFilterSelect
+        v-model="selectedConnectors"
+        :items="connectorOptions"
+        placeholder="All connectors"
+        class="w-full sm:w-36"
+      />
+      <AppFilterSelect
+        v-model="selectedUsers"
+        :items="userOptions"
+        placeholder="All users"
+        class="w-full sm:w-32"
+      />
+      <AppFilterSelect
+        v-model="selectedTypes"
+        :items="typeOptions"
+        placeholder="All types"
+        class="w-full sm:w-32"
+      />
+      <UButton
+        label="Reset"
+        variant="outline"
+        color="neutral"
+        size="sm"
+        :disabled="!filtersActive"
+        @click="resetFilters"
+      />
+      <UCheckbox
+        v-model="showSmallBalances"
+        label="Show small balances"
+        size="sm"
+        class="items-center sm:ml-auto"
+      />
     </template>
 
     <template #default>

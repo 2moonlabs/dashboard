@@ -36,6 +36,7 @@ watch(options, (list) => {
     :items="options"
     value-key="value"
     :placeholder="placeholder"
+    size="sm"
     multiple
     clear
   />

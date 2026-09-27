@@ -33,8 +33,12 @@ const snapshotTs = computed(() => rows.value[0]?.snapshot_ts ?? null)
 const snapshotLabel = computed(() => {
   if (!snapshotTs.value) return 'No snapshot'
 
-  return `${new Date(snapshotTs.value).toISOString().slice(0, 19).replace('T', ' ')} UTC`
+  return `Snapshot ${new Date(snapshotTs.value).toISOString().slice(0, 19).replace('T', ' ')} UTC`
 })
+
+const summary = computed(() =>
+  `${snapshotLabel.value} · Showing ${filteredVolumes.value.length} of ${rows.value.length} accounts`
+)
 
 function resetFilters() {
   selectedConnectors.value = []
@@ -43,7 +47,10 @@ function resetFilters() {
 </script>
 
 <template>
-  <AppPage title="Volumes">
+  <AppPage
+    title="Volumes"
+    :description="summary"
+  >
     <template #actions>
       <AppRefreshButton
         :loading="loading"
@@ -52,34 +59,26 @@ function resetFilters() {
     </template>
 
     <template #toolbar>
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <AppFilterSelect
-            v-model="selectedConnectors"
-            :items="connectorOptions"
-            placeholder="All connectors"
-            class="sm:w-44"
-          />
-          <AppFilterSelect
-            v-model="selectedUsers"
-            :items="userOptions"
-            placeholder="All users"
-            class="sm:w-36"
-          />
-          <UButton
-            label="Reset filters"
-            variant="outline"
-            color="neutral"
-            class="w-fit"
-            :disabled="!filtersActive"
-            @click="resetFilters"
-          />
-        </div>
-        <div class="text-xs text-muted tabular-nums lg:text-right">
-          <p>Snapshot {{ snapshotLabel }}</p>
-          <p>Showing {{ filteredVolumes.length }} of {{ rows.length }} accounts</p>
-        </div>
-      </div>
+      <AppFilterSelect
+        v-model="selectedConnectors"
+        :items="connectorOptions"
+        placeholder="All connectors"
+        class="w-full sm:w-36"
+      />
+      <AppFilterSelect
+        v-model="selectedUsers"
+        :items="userOptions"
+        placeholder="All users"
+        class="w-full sm:w-32"
+      />
+      <UButton
+        label="Reset"
+        variant="outline"
+        color="neutral"
+        size="sm"
+        :disabled="!filtersActive"
+        @click="resetFilters"
+      />
     </template>
 
     <template #default>

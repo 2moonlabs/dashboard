@@ -79,24 +79,22 @@ const snapshotTs = computed(() =>
 const snapshotLabel = computed(() => {
   if (!snapshotTs.value) return 'No snapshot'
 
-  return `${new Date(snapshotTs.value).toISOString().slice(0, 19).replace('T', ' ')} UTC`
+  return `Snapshot ${new Date(snapshotTs.value).toISOString().slice(0, 19).replace('T', ' ')} UTC`
 })
+const summary = computed(() =>
+  `${snapshotLabel.value} · Showing ${filteredStrategies.value.length} of ${strategies.value?.length ?? 0} strategies`
+)
+// Reset covers the dropdowns only; the checkboxes are view toggles the user keeps.
 const filtersActive = computed(() =>
   selectedConnectors.value.length > 0
   || selectedUsers.value.length > 0
   || selectedTags.value.length > 0
-  || includeInactiveStrategies.value
-  || includeThisQuarter.value
-  || includeThisYear.value
 )
 
 function resetFilters() {
   selectedConnectors.value = []
   selectedUsers.value = []
   selectedTags.value = []
-  includeInactiveStrategies.value = false
-  includeThisQuarter.value = false
-  includeThisYear.value = false
 }
 
 const accountOptions = computed(() => (accounts.value ?? []).map(account => ({
@@ -346,7 +344,10 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
 </script>
 
 <template>
-  <AppPage title="Strategies">
+  <AppPage
+    title="Strategies"
+    :description="summary"
+  >
     <template #actions>
       <UButton
         icon="i-lucide-plus"
@@ -361,59 +362,50 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
     </template>
 
     <template #toolbar>
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex flex-col gap-3">
-          <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <AppFilterSelect
-              v-model="selectedConnectors"
-              :items="connectorOptions"
-              placeholder="All connectors"
-              class="sm:w-44"
-            />
-            <AppFilterSelect
-              v-model="selectedUsers"
-              :items="userOptions"
-              placeholder="All users"
-              class="sm:w-36"
-            />
-            <AppFilterSelect
-              v-model="selectedTags"
-              :items="tagOptions"
-              placeholder="All tags"
-              class="sm:w-40"
-            />
-            <UButton
-              label="Reset filters"
-              variant="outline"
-              color="neutral"
-              class="w-fit"
-              :disabled="!filtersActive"
-              @click="resetFilters"
-            />
-          </div>
-          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-            <UCheckbox
-              v-model="includeInactiveStrategies"
-              label="Include inactive strategies"
-              class="items-center"
-            />
-            <UCheckbox
-              v-model="includeThisQuarter"
-              label="Include this quarter"
-              class="items-center"
-            />
-            <UCheckbox
-              v-model="includeThisYear"
-              label="Include this year"
-              class="items-center"
-            />
-          </div>
-        </div>
-        <div class="text-xs text-muted tabular-nums whitespace-nowrap lg:text-right">
-          <p>Snapshot {{ snapshotLabel }}</p>
-          <p>Showing {{ filteredStrategies.length }} of {{ strategies?.length ?? 0 }} strategies</p>
-        </div>
-      </div>
+      <AppFilterSelect
+        v-model="selectedConnectors"
+        :items="connectorOptions"
+        placeholder="All connectors"
+        class="w-full sm:w-36"
+      />
+      <AppFilterSelect
+        v-model="selectedUsers"
+        :items="userOptions"
+        placeholder="All users"
+        class="w-full sm:w-32"
+      />
+      <AppFilterSelect
+        v-model="selectedTags"
+        :items="tagOptions"
+        placeholder="All tags"
+        class="w-full sm:w-32"
+      />
+      <UButton
+        label="Reset"
+        variant="outline"
+        color="neutral"
+        size="sm"
+        :disabled="!filtersActive"
+        @click="resetFilters"
+      />
+      <UCheckbox
+        v-model="includeInactiveStrategies"
+        label="Include inactive strategies"
+        size="sm"
+        class="items-center sm:ml-auto"
+      />
+      <UCheckbox
+        v-model="includeThisQuarter"
+        label="Include this quarter"
+        size="sm"
+        class="items-center"
+      />
+      <UCheckbox
+        v-model="includeThisYear"
+        label="Include this year"
+        size="sm"
+        class="items-center"
+      />
     </template>
 
     <template #default>

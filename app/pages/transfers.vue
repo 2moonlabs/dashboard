@@ -92,6 +92,9 @@ const filtersActive = computed(() =>
   || selectedAccounts.value.length > 0
   || selectedTypes.value.length > 0
 )
+const summary = computed(() =>
+  `Showing ${filteredTransfers.value.length} of ${transfers.value?.length ?? 0} recent rows`
+)
 
 function resetFilters() {
   selectedConnectors.value = []
@@ -241,7 +244,10 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
 </script>
 
 <template>
-  <AppPage title="Transfers">
+  <AppPage
+    title="Transfers"
+    :description="summary"
+  >
     <template #actions>
       <UButton
         icon="i-lucide-plus"
@@ -256,40 +262,32 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
     </template>
 
     <template #toolbar>
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <AppFilterSelect
-            v-model="selectedConnectors"
-            :items="connectorOptions"
-            placeholder="All connectors"
-            class="sm:w-44"
-          />
-          <AppFilterSelect
-            v-model="selectedAccounts"
-            :items="accountOptions"
-            placeholder="All accounts"
-            class="sm:w-72"
-          />
-          <AppFilterSelect
-            v-model="selectedTypes"
-            :items="TRANSFER_TYPE_OPTIONS"
-            placeholder="All types"
-            class="sm:w-44"
-          />
-          <UButton
-            label="Reset filters"
-            variant="outline"
-            color="neutral"
-            class="w-fit"
-            :disabled="!filtersActive"
-            @click="resetFilters"
-          />
-        </div>
-
-        <p class="text-xs text-muted tabular-nums">
-          Showing {{ filteredTransfers.length }} of {{ transfers?.length ?? 0 }} recent rows
-        </p>
-      </div>
+      <AppFilterSelect
+        v-model="selectedConnectors"
+        :items="connectorOptions"
+        placeholder="All connectors"
+        class="w-full sm:w-36"
+      />
+      <AppFilterSelect
+        v-model="selectedAccounts"
+        :items="accountOptions"
+        placeholder="All accounts"
+        class="w-full sm:w-60"
+      />
+      <AppFilterSelect
+        v-model="selectedTypes"
+        :items="TRANSFER_TYPE_OPTIONS"
+        placeholder="All types"
+        class="w-full sm:w-36"
+      />
+      <UButton
+        label="Reset"
+        variant="outline"
+        color="neutral"
+        size="sm"
+        :disabled="!filtersActive"
+        @click="resetFilters"
+      />
     </template>
 
     <template #default>

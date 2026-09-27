@@ -110,32 +110,28 @@ async function refreshPageData() {
     </template>
 
     <template #toolbar>
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <USelect
-            v-model="selectedConnector"
-            :items="connectorOptions"
-            value-key="value"
-            class="min-w-44"
-          />
-          <USelect
-            v-model="selectedUser"
-            :items="userOptions"
-            value-key="value"
-            class="min-w-36"
-          />
-        </div>
-
-        <div class="flex flex-col gap-3 sm:flex-row sm:justify-end lg:shrink-0">
-          <USelect
-            v-model="historyRangeDays"
-            :items="historyRangeOptions"
-            value-key="value"
-            aria-label="History range"
-            class="min-w-36"
-          />
-        </div>
-      </div>
+      <USelect
+        v-model="selectedConnector"
+        :items="connectorOptions"
+        value-key="value"
+        size="sm"
+        class="w-full sm:w-36"
+      />
+      <USelect
+        v-model="selectedUser"
+        :items="userOptions"
+        value-key="value"
+        size="sm"
+        class="w-full sm:w-32"
+      />
+      <USelect
+        v-model="historyRangeDays"
+        :items="historyRangeOptions"
+        value-key="value"
+        aria-label="History range"
+        size="sm"
+        class="w-full sm:ml-auto sm:w-32"
+      />
     </template>
 
     <template #default>
