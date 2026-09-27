@@ -388,11 +388,14 @@ async function onEditSubmit(event: FormSubmitEvent<EditForm>) {
         :disabled="!filtersActive"
         @click="resetFilters"
       />
+    </template>
+
+    <template #toggles>
       <UCheckbox
         v-model="includeInactiveStrategies"
         label="Include inactive strategies"
         size="sm"
-        class="items-center sm:ml-auto"
+        class="items-center"
       />
       <UCheckbox
         v-model="includeThisQuarter"

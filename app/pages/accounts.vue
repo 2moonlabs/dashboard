@@ -106,11 +106,14 @@ const summary = computed(() =>
         :disabled="!filtersActive"
         @click="resetFilters"
       />
+    </template>
+
+    <template #toggles>
       <UCheckbox
         v-model="showSmallBalances"
         label="Show small balances"
         size="sm"
-        class="items-center sm:ml-auto"
+        class="items-center"
       />
     </template>
 

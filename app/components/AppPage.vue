@@ -23,18 +23,24 @@ defineProps<{
     <!-- The toolbar sits closer to the content it filters than to the header. -->
     <div class="space-y-3">
       <section
-        v-if="$slots.toolbar"
+        v-if="$slots.toolbar || description"
         class="flex flex-wrap items-center gap-x-3 gap-y-2"
       >
         <slot name="toolbar" />
+        <p
+          v-if="description"
+          class="text-xs text-muted tabular-nums sm:ml-auto"
+        >
+          {{ description }}
+        </p>
       </section>
 
-      <p
-        v-if="description"
-        class="text-xs text-muted tabular-nums sm:text-right"
+      <div
+        v-if="$slots.toggles"
+        class="flex flex-wrap items-center gap-x-3 gap-y-2 sm:justify-end"
       >
-        {{ description }}
-      </p>
+        <slot name="toggles" />
+      </div>
 
       <slot />
     </div>
