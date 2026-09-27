@@ -129,7 +129,7 @@ async function refreshPageData() {
     </template>
 
     <template #default>
-      <div class="space-y-4 sm:space-y-6">
+      <div class="space-y-3">
         <UAlert
           v-if="fetchError"
           color="error"
