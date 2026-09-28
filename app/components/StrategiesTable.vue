@@ -345,29 +345,21 @@ const allColumns: TableColumn<StrategyWithAccounts>[] = [
       const tags = strategyTags(row.original)
 
       return h('div', { class: 'space-y-1' }, [
-        h('div', { class: 'relative min-w-0' }, [
-          h('div', { class: 'flex min-w-0 flex-wrap items-center gap-1.5' }, [
-            h('span', { class: 'font-medium lowercase text-highlighted' }, row.original.strategy_name),
-            row.original.active
-              ? null
-              : h(resolveComponent('UBadge'), {
-                  color: 'neutral',
-                  variant: 'soft',
-                  size: 'sm'
-                }, () => 'inactive')
-          ]),
-          h(resolveComponent('UButton'), {
-            'aria-label': 'Edit strategy',
-            'class': 'absolute left-full top-1/2 ml-1 -translate-y-1/2 opacity-100 transition-opacity focus-visible:opacity-100 sm:opacity-0 sm:group-hover/strategy-row:opacity-100 sm:focus-visible:opacity-100',
-            'color': 'neutral',
-            'icon': 'i-lucide-square-pen',
-            'size': 'xs',
-            'variant': 'ghost',
-            'onClick': (event: MouseEvent) => {
-              event.stopPropagation()
-              emit('editStrategy', row.original)
-            }
-          })
+        h('div', { class: 'flex min-w-0 flex-wrap items-center gap-1.5' }, [
+          // The name doubles as the edit control, so it is a real button for keyboard users.
+          // Like the server links, it gets no hover styling.
+          h('button', {
+            type: 'button',
+            class: 'text-left font-medium lowercase text-highlighted',
+            onClick: () => emit('editStrategy', row.original)
+          }, row.original.strategy_name),
+          row.original.active
+            ? null
+            : h(resolveComponent('UBadge'), {
+                color: 'neutral',
+                variant: 'soft',
+                size: 'sm'
+              }, () => 'inactive')
         ]),
         h('div', { class: 'flex flex-wrap items-center gap-1' }, [
           // Record id, deliberately not a badge: it is unique per row and not
@@ -448,7 +440,7 @@ const allColumns: TableColumn<StrategyWithAccounts>[] = [
                 href: server.url,
                 target: '_blank',
                 rel: 'noopener noreferrer',
-                class: 'col-start-2 text-highlighted no-underline'
+                class: 'col-start-2 text-highlighted'
               },
               server.label
             ))
@@ -574,7 +566,7 @@ watch(hiddenColumnIds, (hidden) => {
       :columns="columns"
       :loading="loading"
       :sorting-options="sortingOptions"
-      :ui="tableUi({ tr: 'group/strategy-row' })"
+      :ui="tableUi()"
       sticky
     >
       <template #empty>
