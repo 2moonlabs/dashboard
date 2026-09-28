@@ -42,3 +42,11 @@
   --color-pnl-up: oklch(0.763 0.155 117);
   --color-pnl-down: oklch(0.763 0.13 22);
 }
+
+/* Tailwind v4 dropped the pointer cursor on buttons; restore it so every clickable control shows the hand, like links do. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
